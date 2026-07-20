@@ -84,3 +84,35 @@ export const STATUS_LABELS: Record<string, string> = {
   CANCELLED: "Cancelada",
   OVERDUE: "Atrasada",
 };
+
+export type RecurringCategory =
+  | "FECHAMENTO"
+  | "CONFERENCIA"
+  | "APURACAO"
+  | "RELATORIO"
+  | "OUTROS";
+
+export type RecurringItem = {
+  id: string;
+  title: string;
+  description?: string | null;
+  category: RecurringCategory | string;
+  dayOfMonth: number;
+  startTime: string;
+  endTime: string;
+  priority: TaskPriority;
+  active: boolean;
+  notes?: string | null;
+  teamId?: string | null;
+  team: { id: string; name: string } | null;
+  owner: { id: string; fullName: string; email: string };
+  _count?: { tasks: number };
+};
+
+export const RECURRING_CATEGORY_LABELS: Record<RecurringCategory, string> = {
+  FECHAMENTO: "Fechamento mensal",
+  CONFERENCIA: "Conferência",
+  APURACAO: "Apuração",
+  RELATORIO: "Envio de relatório",
+  OUTROS: "Outros processos",
+};

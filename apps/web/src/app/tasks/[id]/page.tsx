@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { AppNav } from "@/components/app-nav";
+import { AppShell } from "@/components/app-shell";
 import {
   apiFetch,
   getAccessToken,
@@ -166,20 +166,11 @@ export default function TaskDetailPage() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl px-4 py-6 md:px-6">
-      <Link href="/" className="font-display text-2xl font-bold">
-        TaskFlow
-      </Link>
-      <div className="mt-6">
-        <AppNav />
-      </div>
-      <h1 className="font-display text-2xl font-bold">Detalhe da atividade</h1>
-      <p className="mt-1 text-sm text-brand-700/70">
-        Status derivado: {STATUS_LABELS[task.derivedStatus] ?? task.derivedStatus}
-        {task.team ? ` · ${task.team.name}` : ""}
-      </p>
-
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+    <AppShell
+      title="Detalhe da atividade"
+      subtitle={`Status derivado: ${STATUS_LABELS[task.derivedStatus] ?? task.derivedStatus}${task.team ? ` · ${task.team.name}` : ""}`}
+    >
+      <form onSubmit={onSubmit} className="mx-auto max-w-2xl space-y-4">
         <label className="block text-sm">
           <span className="mb-1 block">Título</span>
           <input
@@ -292,6 +283,6 @@ export default function TaskDetailPage() {
           </Link>
         </div>
       </form>
-    </main>
+    </AppShell>
   );
 }

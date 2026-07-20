@@ -2,6 +2,15 @@
 
 Sistema web de gestão de atividades individuais e em equipe.
 
+## Documentação
+
+| Documento | Conteúdo |
+|-----------|----------|
+| [docs/DOCUMENTACAO_ANALISTA.md](docs/DOCUMENTACAO_ANALISTA.md) | Repasse técnico completo |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Setup / deploy local |
+| [docs/Atividades_Recorrentes/CHECKLIST_RECORRENTES.md](docs/Atividades_Recorrentes/CHECKLIST_RECORRENTES.md) | Feature de processos mensais |
+| [CHANGELOG.md](CHANGELOG.md) | Histórico de versões |
+
 ## Stack
 
 - **Web:** Next.js · TypeScript · Tailwind · React Query · FullCalendar
@@ -22,6 +31,8 @@ npm install
 npm run db:generate
 npm run db:push
 ```
+
+> Execute os comandos npm **dentro** da pasta `taskflow` (onde está o `package.json`).
 
 ## Desenvolvimento
 
@@ -49,6 +60,7 @@ taskflow/
   apps/web          # Next.js
   apps/api          # NestJS + Prisma
   packages/shared   # Tipos compartilhados
+  docs/             # Documentação do analista
   docker-compose.yml
   docker/postgres/init  # role somente leitura
 ```

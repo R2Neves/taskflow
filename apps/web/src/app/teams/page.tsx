@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AppNav } from "@/components/app-nav";
+import { AppShell } from "@/components/app-shell";
 import { apiFetch, getAccessToken, TeamItem } from "@/lib/api";
 
 export default function TeamsPage() {
@@ -83,18 +82,10 @@ export default function TeamsPage() {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-6xl px-4 py-6 md:px-6">
-      <header className="mb-6">
-        <Link href="/" className="font-display text-2xl font-bold">
-          TaskFlow
-        </Link>
-        <p className="mt-1 text-sm text-brand-700/70">
-          Crie equipes e convide integrantes por e-mail
-        </p>
-      </header>
-
-      <AppNav />
-
+    <AppShell
+      title="Gerenciar equipes"
+      subtitle="Crie equipes e convide integrantes por e-mail"
+    >
       <section className="mb-8 rounded-xl border border-[var(--line)] bg-white/80 p-4">
         <h2 className="font-display text-lg font-semibold">Nova equipe</h2>
         <form onSubmit={onCreate} className="mt-4 grid gap-3 md:grid-cols-3">
@@ -180,6 +171,6 @@ export default function TeamsPage() {
           ))}
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }

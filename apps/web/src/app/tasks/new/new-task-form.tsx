@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AppShell } from "@/components/app-shell";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
 
@@ -93,15 +93,11 @@ export function NewTaskForm() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-xl px-4 py-8">
-      <Link href="/dashboard" className="text-sm text-brand-500 hover:underline">
-        ← Dashboard
-      </Link>
-      <h1 className="mt-4 font-display text-2xl font-bold">Nova atividade</h1>
-      <p className="mt-1 text-sm text-brand-700/70">
-        Blocos de 15 min · jornada 08:45–16:45
-      </p>
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+    <AppShell
+      title="Nova atividade"
+      subtitle="Blocos de 15 min · jornada 08:45–16:45"
+    >
+      <form onSubmit={onSubmit} className="mx-auto max-w-xl space-y-4">
         <label className="block text-sm">
           <span className="mb-1 block">Título</span>
           <input
@@ -172,7 +168,7 @@ export function NewTaskForm() {
           {loading ? "Salvando…" : "Salvar atividade"}
         </button>
       </form>
-    </main>
+    </AppShell>
   );
 }
 

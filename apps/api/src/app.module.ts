@@ -5,6 +5,7 @@ import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { TasksModule } from "./tasks/tasks.module";
 import { TeamsModule } from "./teams/teams.module";
+import { RecurringModule } from "./recurring/recurring.module";
 import { HealthController } from "./health.controller";
 
 @Module({
@@ -15,6 +16,7 @@ import { HealthController } from "./health.controller";
     UsersModule,
     TasksModule,
     TeamsModule,
+    RecurringModule,
   ],
   controllers: [HealthController],
 })

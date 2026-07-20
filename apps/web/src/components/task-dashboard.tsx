@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { AppNav } from "@/components/app-nav";
+import { AppShell } from "@/components/app-shell";
 import { apiFetch, getAccessToken, TaskItem } from "@/lib/api";
 
 const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED"]);
@@ -22,7 +22,6 @@ const priorityDot: Record<Task["priority"], string> = {
   MEDIUM: "bg-priority-medium",
   HIGH: "bg-priority-high",
 };
-
 
 export function TaskDashboard({ mode }: { mode: ViewMode }) {
   const router = useRouter();
@@ -57,7 +56,6 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
       })
       .finally(() => setLoading(false));
   }, [router]);
-
 
   const visibleTasks = useMemo(() => {
     if (!profile) return [];
@@ -100,29 +98,22 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
   const isPersonal = mode === "personal";
 
   return (
-    <div className="mx-auto min-h-screen max-w-6xl px-4 py-6 md:px-6">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <Link href="/" className="font-display text-2xl font-bold">
-            TaskFlow
-          </Link>
-          <p className="mt-1 text-sm text-brand-700/70">
-            {isPersonal
-              ? `Olá, ${profile?.fullName}. Estas são as suas atividades.`
-              : "Visão geral das atividades das suas equipes."}
-          </p>
-        </div>
+    <AppShell
+      title={isPersonal ? "Minhas atividades" : "Atividades da equipe"}
+      subtitle={
+        isPersonal
+          ? `Olá, ${profile?.fullName}. Estas são as suas atividades.`
+          : "Visão geral das atividades das suas equipes."
+      }
+      actions={
         <Link
           href="/tasks/new"
           className="rounded-md bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-900"
         >
           Nova atividade
         </Link>
-      </header>
-
-      <AppNav />
-
-
+      }
+    >
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Kpi value={String(todayTasks.length)} label={todayLabel} />
         <Kpi value={String(completed.length)} label="Concluídas" />
@@ -142,7 +133,7 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
         <TaskList title="Concluídas" tasks={completed} mode={mode} />
         <TaskList title="Atrasadas" tasks={overdue} mode={mode} danger />
       </section>
-    </div>
+    </AppShell>
   );
 }
 
@@ -197,7 +188,6 @@ function AgendaColumn({
             </li>
           ))}
         </ul>
-
       )}
     </section>
   );
@@ -243,7 +233,6 @@ function TaskList({
             </li>
           ))}
         </ul>
-
       )}
     </div>
   );

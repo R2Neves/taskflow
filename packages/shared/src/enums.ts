@@ -43,6 +43,24 @@ export const PRIORITY_COLORS: Record<Priority, string> = {
   [Priority.HIGH]: "#ef4444",
 };
 
+export const RECURRING_CATEGORIES = [
+  "FECHAMENTO",
+  "CONFERENCIA",
+  "APURACAO",
+  "RELATORIO",
+  "OUTROS",
+] as const;
+
+export type RecurringCategory = (typeof RECURRING_CATEGORIES)[number];
+
+export const RECURRING_CATEGORY_LABELS: Record<RecurringCategory, string> = {
+  FECHAMENTO: "Fechamento mensal",
+  CONFERENCIA: "Conferência",
+  APURACAO: "Apuração",
+  RELATORIO: "Envio de relatório",
+  OUTROS: "Outros processos",
+};
+
 export const DEFAULT_WORK_START = "08:45";
 export const DEFAULT_WORK_END = "16:45";
 export const DEFAULT_SLOT_MINUTES = 15;

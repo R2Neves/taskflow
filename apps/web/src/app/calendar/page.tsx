@@ -8,14 +8,13 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import ptBrLocale from "@fullcalendar/core/locales/pt-br";
-import { AppNav } from "@/components/app-nav";
+import { AppShell } from "@/components/app-shell";
 import {
   apiFetch,
   getAccessToken,
   PRIORITY_COLORS,
   TaskItem,
 } from "@/lib/api";
-
 
 export default function CalendarPage() {
   const router = useRouter();
@@ -58,26 +57,18 @@ export default function CalendarPage() {
   }));
 
   return (
-    <div className="mx-auto min-h-screen max-w-6xl px-4 py-6 md:px-6">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <Link href="/" className="font-display text-2xl font-bold">
-            TaskFlow
-          </Link>
-          <p className="mt-1 text-sm text-brand-700/70">
-            Calendário diário, semanal e mensal
-          </p>
-        </div>
+    <AppShell
+      title="Calendário"
+      subtitle="Visão diária, semanal e mensal"
+      actions={
         <Link
           href="/tasks/new"
           className="rounded-md bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-900"
         >
           Nova atividade
         </Link>
-      </header>
-
-      <AppNav />
-
+      }
+    >
       {loading ? (
         <p className="text-sm text-brand-700/70">Carregando calendário…</p>
       ) : error ? (
@@ -111,6 +102,6 @@ export default function CalendarPage() {
           />
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }

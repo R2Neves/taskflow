@@ -57,12 +57,13 @@ model User {
   refreshTokens  RefreshToken[]
   ownedTeams     Team[]              @relation("TeamCreator")
   memberships    TeamMember[]
-  ownedTasks     Task[]              @relation("TaskOwner")
-  assignedTasks  Task[]              @relation("TaskAssignee")
-  participations TaskParticipant[]
-  comments       Comment[]
-  auditLogs      AuditLog[]
-  notifications  Notification[]
+  ownedTasks          Task[]               @relation("TaskOwner")
+  assignedTasks       Task[]               @relation("TaskAssignee")
+  participations      TaskParticipant[]
+  comments            Comment[]
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+  recurringActivities RecurringActivity[]
 }
 
 model RefreshToken {
@@ -94,8 +95,9 @@ model Team {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdBy   User     @relation("TeamCreator", fields: [createdById], references: [id])
-  members     TeamMember[]
-  tasks       Task[]
+  members             TeamMember[]
+  tasks               Task[]
+  recurringActivities RecurringActivity[]
 }
 
 model TeamMember {
@@ -111,35 +113,62 @@ model TeamMember {
 }
 
 model Task {
-  id            String       @id @default(uuid())
-  title         String
-  description   String?
-  ownerId       String
-  assigneeId    String
-  teamId        String?
-  date          DateTime     @db.Date
-  startAt       DateTime
-  endAt         DateTime
-  category      String?
-  priority      Priority     @default(MEDIUM)
-  status        TaskStatus   @default(NOT_STARTED)
-  visibility    Visibility   @default(PRIVATE)
-  notes         String?
-  forceOverlap  Boolean      @default(false)
-  overlapReason String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id                  String       @id @default(uuid())
+  title               String
+  description         String?
+  ownerId             String
+  assigneeId          String
+  teamId              String?
+  recurringActivityId String?
+  date                DateTime     @db.Date
+  startAt             DateTime
+  endAt               DateTime
+  category            String?
+  priority            Priority     @default(MEDIUM)
+  status              TaskStatus   @default(NOT_STARTED)
+  visibility          Visibility   @default(PRIVATE)
+  notes               String?
+  forceOverlap        Boolean      @default(false)
+  overlapReason       String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
-  owner         User              @relation("TaskOwner", fields: [ownerId], references: [id])
-  assignee      User              @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  team          Team?             @relation(fields: [teamId], references: [id])
-  participants  TaskParticipant[]
-  comments      Comment[]
+  owner             User               @relation("TaskOwner", fields: [ownerId], references: [id])
+  assignee          User               @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  team              Team?              @relation(fields: [teamId], references: [id])
+  recurringActivity RecurringActivity? @relation(fields: [recurringActivityId], references: [id], onDelete: SetNull)
+  participants      TaskParticipant[]
+  comments          Comment[]
 
   @@index([assigneeId, date])
   @@index([ownerId, date])
   @@index([teamId])
   @@index([startAt, endAt])
+  @@index([recurringActivityId, date])
+}
+
+model RecurringActivity {
+  id          String   @id @default(uuid())
+  ownerId     String
+  title       String
+  description String?
+  category    String   @default("OUTROS")
+  dayOfMonth  Int
+  startTime   String
+  endTime     String
+  priority    Priority @default(MEDIUM)
+  active      Boolean  @default(true)
+  notes       String?
+  teamId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  team  Team?  @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  tasks Task[]
+
+  @@index([ownerId, active])
+  @@index([teamId])
 }
 
 model TaskParticipant {

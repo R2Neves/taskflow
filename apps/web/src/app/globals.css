@@ -17,3 +17,20 @@ body {
     var(--bg-base);
   color: var(--ink);
 }
+
+.fc {
+  --fc-border-color: var(--line);
+  --fc-button-bg-color: #1f4d3b;
+  --fc-button-border-color: #1f4d3b;
+  --fc-button-hover-bg-color: #123028;
+  --fc-button-hover-border-color: #123028;
+  --fc-button-active-bg-color: #123028;
+  --fc-button-active-border-color: #123028;
+  --fc-today-bg-color: #eef7f2;
+  font-family: "DM Sans", system-ui, sans-serif;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}

@@ -8,6 +8,7 @@ dist
 *.log
 coverage
 .DS_Store
+*.tsbuildinfo
 apps/api/prisma/*.db
 apps/api/prisma/*.db-journal
 apps/api/.env

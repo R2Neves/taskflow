@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { AppNav } from "@/components/app-nav";
+import { apiFetch, getAccessToken, TaskItem } from "@/lib/api";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
 const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED"]);
 
 type ViewMode = "personal" | "team";
@@ -14,23 +15,14 @@ type Profile = {
   fullName: string;
 };
 
-type Task = {
-  id: string;
-  title: string;
-  startAt: string;
-  endAt: string;
-  priority: "LOW" | "MEDIUM" | "HIGH";
-  status: string;
-  derivedStatus: string;
-  assignee: { id: string; fullName: string; email: string };
-  team: { id: string; name: string } | null;
-};
+type Task = TaskItem;
 
 const priorityDot: Record<Task["priority"], string> = {
   LOW: "bg-priority-low",
   MEDIUM: "bg-priority-medium",
   HIGH: "bg-priority-high",
 };
+
 
 export function TaskDashboard({ mode }: { mode: ViewMode }) {
   const router = useRouter();
@@ -40,15 +32,14 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("tf_access");
-    if (!token) {
+    if (!getAccessToken()) {
       router.replace("/login");
       return;
     }
 
     Promise.all([
-      request<Profile>("/users/me", token),
-      request<Task[]>("/tasks", token),
+      apiFetch<Profile>("/users/me"),
+      apiFetch<Task[]>("/tasks"),
     ])
       .then(([user, availableTasks]) => {
         setProfile(user);
@@ -66,6 +57,7 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
       })
       .finally(() => setLoading(false));
   }, [router]);
+
 
   const visibleTasks = useMemo(() => {
     if (!profile) return [];
@@ -128,14 +120,8 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
         </Link>
       </header>
 
-      <nav className="mb-8 flex w-fit gap-1 rounded-lg border border-[var(--line)] bg-white/80 p-1">
-        <ViewLink href="/dashboard" active={isPersonal}>
-          Minhas atividades
-        </ViewLink>
-        <ViewLink href="/team" active={!isPersonal}>
-          Atividades da equipe
-        </ViewLink>
-      </nav>
+      <AppNav />
+
 
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Kpi value={String(todayTasks.length)} label={todayLabel} />
@@ -157,41 +143,6 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
         <TaskList title="Atrasadas" tasks={overdue} mode={mode} danger />
       </section>
     </div>
-  );
-}
-
-async function request<T>(path: string, token: string): Promise<T> {
-  const response = await fetch(`${API}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (response.status === 401) throw new Error("UNAUTHORIZED");
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.message ?? "Falha ao carregar dados");
-  }
-  return response.json() as Promise<T>;
-}
-
-function ViewLink({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`rounded-md px-4 py-2 text-sm font-medium transition ${
-        active
-          ? "bg-brand-700 text-white"
-          : "text-brand-700 hover:bg-brand-50"
-      }`}
-    >
-      {children}
-    </Link>
   );
 }
 
@@ -223,27 +174,30 @@ function AgendaColumn({
       ) : (
         <ul className="space-y-2">
           {tasks.map((task) => (
-            <li
-              key={task.id}
-              className="flex items-start gap-3 rounded-md border border-[var(--line)] bg-[var(--bg-base)] px-3 py-2"
-            >
-              <span
-                className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${priorityDot[task.priority]}`}
-              />
-              <div className="min-w-0">
-                <p className="text-xs text-brand-700/60">
-                  {formatTime(task.startAt)}–{formatTime(task.endAt)}
-                </p>
-                <p className="truncate text-sm font-medium">{task.title}</p>
-                <p className="truncate text-xs text-brand-700/60">
-                  {mode === "team"
-                    ? `${task.team?.name ?? "Equipe"} · ${task.assignee.fullName}`
-                    : task.team?.name ?? "Atividade pessoal"}
-                </p>
-              </div>
+            <li key={task.id}>
+              <Link
+                href={`/tasks/${task.id}`}
+                className="flex items-start gap-3 rounded-md border border-[var(--line)] bg-[var(--bg-base)] px-3 py-2 transition hover:border-brand-500/40"
+              >
+                <span
+                  className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${priorityDot[task.priority]}`}
+                />
+                <div className="min-w-0">
+                  <p className="text-xs text-brand-700/60">
+                    {formatTime(task.startAt)}–{formatTime(task.endAt)}
+                  </p>
+                  <p className="truncate text-sm font-medium">{task.title}</p>
+                  <p className="truncate text-xs text-brand-700/60">
+                    {mode === "team"
+                      ? `${task.team?.name ?? "Equipe"} · ${task.assignee.fullName}`
+                      : task.team?.name ?? "Atividade pessoal"}
+                  </p>
+                </div>
+              </Link>
             </li>
           ))}
         </ul>
+
       )}
     </section>
   );
@@ -278,15 +232,18 @@ function TaskList({
         <ul className="space-y-2 text-sm text-brand-700/80">
           {tasks.map((task) => (
             <li key={task.id} className="border-t border-[var(--line)] pt-2">
-              <p className="font-medium text-brand-900">{task.title}</p>
-              <p className="text-xs text-brand-700/60">
-                {mode === "team"
-                  ? `${task.team?.name ?? "Equipe"} · ${task.assignee.fullName}`
-                  : `${formatTime(task.startAt)}–${formatTime(task.endAt)}`}
-              </p>
+              <Link href={`/tasks/${task.id}`} className="block hover:underline">
+                <p className="font-medium text-brand-900">{task.title}</p>
+                <p className="text-xs text-brand-700/60">
+                  {mode === "team"
+                    ? `${task.team?.name ?? "Equipe"} · ${task.assignee.fullName}`
+                    : `${formatTime(task.startAt)}–${formatTime(task.endAt)}`}
+                </p>
+              </Link>
             </li>
           ))}
         </ul>
+
       )}
     </div>
   );

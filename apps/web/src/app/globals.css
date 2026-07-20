@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-base: #f3f7f4;
+  --bg-panel: #ffffff;
+  --ink: #123028;
+  --accent: #2f6f55;
+  --line: #d7e5dd;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, #d5ebe0 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, #e8f0ea 0%, transparent 50%),
+    var(--bg-base);
+  color: var(--ink);
+}

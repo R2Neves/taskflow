@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SystemRole {
+  ADMIN
+  USER
+}
+
+enum TeamRole {
+  OWNER
+  MEMBER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PAUSED
+  WAITING_THIRD_PARTY
+  COMPLETED
+  CANCELLED
+}
+
+enum Visibility {
+  PRIVATE
+  SHARED
+  TEAM
+}
+
+enum ParticipantRole {
+  ASSIGNEE
+  PARTICIPANT
+}
+
+model User {
+  id           String   @id @default(uuid())
+  fullName     String
+  email        String   @unique
+  passwordHash String
+  systemRole   SystemRole @default(USER)
+  timezone     String   @default("America/Sao_Paulo")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workSchedule   WorkSchedule?
+  refreshTokens  RefreshToken[]
+  ownedTeams     Team[]              @relation("TeamCreator")
+  memberships    TeamMember[]
+  ownedTasks     Task[]              @relation("TaskOwner")
+  assignedTasks  Task[]              @relation("TaskAssignee")
+  participations TaskParticipant[]
+  comments       Comment[]
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model WorkSchedule {
+  id          String @id @default(uuid())
+  userId      String @unique
+  startTime   String @default("08:45")
+  endTime     String @default("16:45")
+  slotMinutes Int    @default(15)
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Team {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   User     @relation("TeamCreator", fields: [createdById], references: [id])
+  members     TeamMember[]
+  tasks       Task[]
+}
+
+model TeamMember {
+  id       String   @id @default(uuid())
+  teamId   String
+  userId   String
+  role     TeamRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model Task {
+  id            String       @id @default(uuid())
+  title         String
+  description   String?
+  ownerId       String
+  assigneeId    String
+  teamId        String?
+  date          DateTime     @db.Date
+  startAt       DateTime
+  endAt         DateTime
+  category      String?
+  priority      Priority     @default(MEDIUM)
+  status        TaskStatus   @default(NOT_STARTED)
+  visibility    Visibility   @default(PRIVATE)
+  notes         String?
+  forceOverlap  Boolean      @default(false)
+  overlapReason String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  owner         User              @relation("TaskOwner", fields: [ownerId], references: [id])
+  assignee      User              @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  team          Team?             @relation(fields: [teamId], references: [id])
+  participants  TaskParticipant[]
+  comments      Comment[]
+
+  @@index([assigneeId, date])
+  @@index([ownerId, date])
+  @@index([teamId])
+  @@index([startAt, endAt])
+}
+
+model TaskParticipant {
+  id     String          @id @default(uuid())
+  taskId String
+  userId String
+  role   ParticipantRole @default(PARTICIPANT)
+  task   Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  taskId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@index([taskId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  entityType String
+  entityId   String
+  actorId    String
+  action     String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+  actor      User     @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  payload   Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}

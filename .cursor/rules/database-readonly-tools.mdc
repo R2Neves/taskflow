@@ -1,0 +1,32 @@
+---
+description: Ferramentas/agente só consultam e enviam info — nunca alteram o banco
+alwaysApply: true
+---
+
+# Banco de dados — somente consulta e envio
+
+O uso desta ferramenta (agente Cursor, Shell, Prisma CLI, scripts auxiliares) no projeto TaskFlow é **estritamente limitado** a:
+
+- **Consulta** de informação (SELECT / `find*` / `count` / `aggregate`)
+- **Envio** de informação ao usuário (respostas, relatórios, exports, logs)
+
+## Proibido de forma absoluta
+
+Nunca execute, sugira como comando pronto, nem automatize:
+
+- `INSERT`, `UPDATE`, `DELETE`, `UPSERT`, `TRUNCATE`, `DROP`, `ALTER`, `CREATE`, `GRANT`, `REVOKE`
+- Prisma: `create`, `update`, `delete`, `upsert`, `createMany`, `updateMany`, `deleteMany`, `$executeRaw`, `$executeRawUnsafe`
+- `prisma db push`, `prisma migrate`, `prisma db seed`, `prisma studio` (Studio permite edição)
+- Limpeza/remoção de volumes Docker do Postgres (`docker volume rm`, `down -v`)
+- Alterar `.env` / `DATABASE_URL` para forçar escrita via tooling
+- Usar a connection string do usuário `taskflow` (owner) para consultas do agente
+
+## Obrigatório para consultas via tooling
+
+- Usar **somente** `DATABASE_URL_READONLY` (usuário `taskflow_readonly`)
+- Preferir `SELECT` / Prisma `findMany` / `findUnique` / `count`
+- Se a consulta exigir privilégio de escrita, **recusar** e explicar o bloqueio
+
+## Escopo da aplicação
+
+A API NestJS (`AuthService`, `TasksService`) pode escrever no banco **como produto**. Isso **não** autoriza o agente a mutar dados nem schema via ferramentas.

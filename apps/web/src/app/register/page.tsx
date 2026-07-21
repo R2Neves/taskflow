@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BrandLogo } from "@/components/brand-logo";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
 
@@ -45,10 +46,14 @@ export default function RegisterPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
-      <Link href="/" className="font-display text-2xl font-bold text-brand-900">
-        TaskFlow
+      <Link
+        href="/"
+        className="self-center"
+        aria-label="CodeForge Systems — início"
+      >
+        <BrandLogo className="h-48 w-64" priority />
       </Link>
-      <h1 className="mt-8 text-xl font-semibold">Criar conta</h1>
+      <h1 className="-mt-2 text-center text-xl font-semibold">Criar conta</h1>
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <label className="block text-sm">
           <span className="mb-1 block text-brand-700">Nome completo</span>

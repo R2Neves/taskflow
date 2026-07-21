@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 
 export default function HomePage() {
   return (
@@ -6,10 +7,8 @@ export default function HomePage() {
       <p className="mb-3 text-sm font-medium tracking-wide text-brand-500">
         Gestão de atividades
       </p>
-      <h1 className="font-display text-5xl font-bold tracking-tight text-brand-900 md:text-6xl">
-        TaskFlow
-      </h1>
-      <p className="mt-4 max-w-xl text-lg text-brand-700/80">
+      <BrandLogo className="-my-8 h-72 w-96 max-w-full" priority />
+      <p className="mt-2 max-w-xl text-lg text-brand-700/80">
         Planeje o dia em blocos de 15 minutos, compartilhe com a equipe e
         acompanhe atrasos em tempo real.
       </p>

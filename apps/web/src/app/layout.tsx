@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "TaskFlow",
+  title: "CodeForge Systems",
   description: "Gestão de atividades individuais e em equipe",
 };
 

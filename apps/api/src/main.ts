@@ -19,7 +19,7 @@ async function bootstrap() {
   const port = Number(process.env.API_PORT ?? 3001);
   await app.listen(port);
   // eslint-disable-next-line no-console
-  console.log(`TaskFlow API on http://localhost:${port}/api/v1`);
+  console.log(`CodeForge Systems API on http://localhost:${port}/api/v1`);
 }
 
 bootstrap();

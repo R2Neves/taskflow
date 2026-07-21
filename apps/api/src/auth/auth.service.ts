@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
+import { SystemRole } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { createHash, randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
@@ -31,15 +32,24 @@ export class AuthService {
       throw new ConflictException("E-mail já cadastrado");
     }
     const passwordHash = await bcrypt.hash(dto.password, 10);
+    const email = dto.email.toLowerCase();
     const user = await this.prisma.user.create({
       data: {
         fullName: dto.fullName,
-        email: dto.email.toLowerCase(),
+        email,
         passwordHash,
+        systemRole: this.isBootstrapAdmin(email)
+          ? SystemRole.ADMIN
+          : SystemRole.USER,
         workSchedule: { create: {} },
       },
     });
-    return this.issueTokens(user.id, user.email, user.systemRole);
+    const authorizedUser = await this.ensureBootstrapAdmin(user);
+    return this.issueTokens(
+      authorizedUser.id,
+      authorizedUser.email,
+      authorizedUser.systemRole,
+    );
   }
 
   async login(dto: LoginDto) {
@@ -51,7 +61,12 @@ export class AuthService {
     if (!ok) {
       throw new UnauthorizedException("Credenciais inválidas");
     }
-    return this.issueTokens(user.id, user.email, user.systemRole);
+    const authorizedUser = await this.ensureBootstrapAdmin(user);
+    return this.issueTokens(
+      authorizedUser.id,
+      authorizedUser.email,
+      authorizedUser.systemRole,
+    );
   }
 
   async refresh(rawToken: string) {
@@ -67,10 +82,11 @@ export class AuthService {
       where: { id: stored.id },
       data: { revokedAt: new Date() },
     });
+    const authorizedUser = await this.ensureBootstrapAdmin(stored.user);
     return this.issueTokens(
-      stored.user.id,
-      stored.user.email,
-      stored.user.systemRole,
+      authorizedUser.id,
+      authorizedUser.email,
+      authorizedUser.systemRole,
     );
   }
 
@@ -122,5 +138,31 @@ export class AuthService {
 
   private hashToken(token: string) {
     return createHash("sha256").update(token).digest("hex");
+  }
+
+  private isBootstrapAdmin(email: string) {
+    return (
+      email.toLowerCase() ===
+      this.config
+        .get<string>("ADMIN_EMAIL", "rneves@beautyservices.com.br")
+        .toLowerCase()
+    );
+  }
+
+  private async ensureBootstrapAdmin<T extends {
+    id: string;
+    email: string;
+    systemRole: SystemRole;
+  }>(user: T) {
+    if (
+      this.isBootstrapAdmin(user.email) &&
+      user.systemRole !== SystemRole.ADMIN
+    ) {
+      return this.prisma.user.update({
+        where: { id: user.id },
+        data: { systemRole: SystemRole.ADMIN },
+      });
+    }
+    return user;
   }
 }

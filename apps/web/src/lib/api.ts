@@ -5,6 +5,23 @@ export function getAccessToken() {
   return localStorage.getItem("tf_access");
 }
 
+export function getAccessClaims() {
+  const token = getAccessToken();
+  if (!token) return null;
+  try {
+    const payload = token.split(".")[1]
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+    return JSON.parse(atob(payload)) as {
+      sub: string;
+      email: string;
+      systemRole: "ADMIN" | "USER";
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},

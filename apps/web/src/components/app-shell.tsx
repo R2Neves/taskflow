@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { getAccessClaims } from "@/lib/api";
+import { BrandLogo } from "@/components/brand-logo";
 
 type NavItem = {
   href: string;
   label: string;
   description?: string;
+  adminOnly?: boolean;
 };
 
 type NavSection = {
@@ -59,6 +62,12 @@ const SECTIONS: NavSection[] = [
         label: "Gerenciar equipes",
         description: "Criar equipes e convidar membros",
       },
+      {
+        href: "/admin",
+        label: "Painel administrador",
+        description: "Gerenciar acessos e permissões",
+        adminOnly: true,
+      },
     ],
   },
 ];
@@ -82,6 +91,15 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const claims = getAccessClaims();
+    setIsAdmin(
+      claims?.systemRole === "ADMIN" ||
+        claims?.email?.toLowerCase() === "rneves@beautyservices.com.br",
+    );
+  }, [pathname]);
 
   function logout() {
     localStorage.removeItem("tf_access");
@@ -108,12 +126,10 @@ export function AppSidebar({
           <Link
             href="/dashboard"
             onClick={onClose}
-            className="flex items-center gap-3 font-display text-2xl font-bold text-slate-50"
+            className="block"
+            aria-label="CodeForge Systems — início"
           >
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-300 to-cyan-500 font-sans text-sm font-black text-slate-950 shadow-lg shadow-teal-950/40">
-              TF
-            </span>
-            TaskFlow
+            <BrandLogo className="h-28 w-full" priority />
           </Link>
           <p className="mt-2 text-xs text-slate-500">
             Gestão de atividades e processos
@@ -127,7 +143,9 @@ export function AppSidebar({
                 {section.title}
               </p>
               <ul className="space-y-1">
-                {section.items.map((item) => {
+                {section.items
+                  .filter((item) => !item.adminOnly || isAdmin)
+                  .map((item) => {
                   const active = isActive(pathname, item.href);
                   const isRecurring = item.href === "/recurring";
                   return (
@@ -158,7 +176,7 @@ export function AppSidebar({
                       </Link>
                     </li>
                   );
-                })}
+                  })}
               </ul>
             </div>
           ))}
@@ -227,9 +245,10 @@ export function AppShell({
               ) : (
                 <Link
                   href="/dashboard"
-                  className="font-display text-xl font-bold md:hidden"
+                  className="md:hidden"
+                  aria-label="CodeForge Systems — início"
                 >
-                  TaskFlow
+                  <BrandLogo className="h-10 w-28" />
                 </Link>
               )}
             </div>

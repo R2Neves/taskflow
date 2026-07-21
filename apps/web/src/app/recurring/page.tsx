@@ -384,7 +384,7 @@ export default function RecurringPage() {
             </select>
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block">Início</span>
+            <span className="mb-1 block">Início previsto</span>
             <select
               value={form.startTime}
               onChange={(e) =>
@@ -400,7 +400,7 @@ export default function RecurringPage() {
             </select>
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block">Fim</span>
+            <span className="mb-1 block">Fim previsto</span>
             <select
               value={form.endTime}
               onChange={(e) =>

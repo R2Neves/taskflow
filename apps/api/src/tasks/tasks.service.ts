@@ -49,6 +49,23 @@ export class TasksService {
       },
       include: this.taskRelations,
     });
+    if (
+      task.status === TaskStatus.IN_PROGRESS ||
+      task.status === TaskStatus.COMPLETED
+    ) {
+      await this.prisma.auditLog.create({
+        data: {
+          entityType: "Task",
+          entityId: task.id,
+          actorId: userId,
+          action:
+            task.status === TaskStatus.IN_PROGRESS
+              ? "TASK_STARTED"
+              : "TASK_COMPLETED",
+          after: { status: task.status },
+        },
+      });
+    }
 
     return this.withDerivedStatus(task);
   }
@@ -80,7 +97,7 @@ export class TasksService {
 
   async findOne(userId: string, id: string) {
     const task = await this.findAccessible(userId, id);
-    return this.withDerivedStatus(task);
+    return this.withActualTiming(task);
   }
 
   async update(userId: string, id: string, dto: UpdateTaskDto) {
@@ -129,6 +146,26 @@ export class TasksService {
       },
       include: this.taskRelations,
     });
+    if (
+      dto.status !== undefined &&
+      dto.status !== current.status &&
+      (dto.status === TaskStatus.IN_PROGRESS ||
+        dto.status === TaskStatus.COMPLETED)
+    ) {
+      await this.prisma.auditLog.create({
+        data: {
+          entityType: "Task",
+          entityId: id,
+          actorId: userId,
+          action:
+            dto.status === TaskStatus.IN_PROGRESS
+              ? "TASK_STARTED"
+              : "TASK_COMPLETED",
+          before: { status: current.status },
+          after: { status: dto.status },
+        },
+      });
+    }
     return this.withDerivedStatus(task);
   }
 
@@ -250,5 +287,48 @@ export class TasksService {
         ? "OVERDUE"
         : task.status;
     return { ...task, derivedStatus };
+  }
+
+  private async withActualTiming<
+    T extends {
+      id: string;
+      status: TaskStatus;
+      startAt: Date;
+      endAt: Date;
+      updatedAt: Date;
+    },
+  >(task: T) {
+    const events = await this.prisma.auditLog.findMany({
+      where: {
+        entityType: "Task",
+        entityId: task.id,
+        action: { in: ["TASK_STARTED", "TASK_COMPLETED"] },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { action: true, createdAt: true },
+    });
+    const completion =
+      events.find((event) => event.action === "TASK_COMPLETED")?.createdAt ??
+      (task.status === TaskStatus.COMPLETED ? task.updatedAt : null);
+    const start =
+      events.find(
+        (event) =>
+          event.action === "TASK_STARTED" &&
+          (!completion || event.createdAt <= completion),
+      )?.createdAt ?? (completion ? task.startAt : null);
+    const actualDurationMinutes =
+      start && completion
+        ? Math.max(
+            0,
+            Math.round((completion.getTime() - start.getTime()) / 60_000),
+          )
+        : null;
+
+    return {
+      ...this.withDerivedStatus(task),
+      actualStartAt: start,
+      actualEndAt: completion,
+      actualDurationMinutes,
+    };
   }
 }

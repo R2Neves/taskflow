@@ -119,7 +119,7 @@ export function NewTaskForm() {
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm">
-            <span className="mb-1 block">Início</span>
+            <span className="mb-1 block">Início previsto</span>
             <select
               value={start}
               onChange={(e) => setStart(e.target.value)}
@@ -133,7 +133,7 @@ export function NewTaskForm() {
             </select>
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block">Fim</span>
+            <span className="mb-1 block">Fim previsto</span>
             <select
               value={end}
               onChange={(e) => setEnd(e.target.value)}

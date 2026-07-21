@@ -92,7 +92,7 @@ export function AppSidebar({
   return (
     <>
       <div
-        className={`fixed inset-0 z-40 bg-brand-900/30 transition md:hidden ${
+        className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition md:hidden ${
           open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         onClick={onClose}
@@ -100,19 +100,22 @@ export function AppSidebar({
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-[var(--line)] bg-white/95 backdrop-blur transition-transform md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-slate-800 bg-slate-950/95 shadow-2xl shadow-black/30 backdrop-blur-xl transition-transform md:static md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="border-b border-[var(--line)] px-5 py-5">
+        <div className="border-b border-slate-800 px-5 py-5">
           <Link
             href="/dashboard"
             onClick={onClose}
-            className="font-display text-2xl font-bold text-brand-900"
+            className="flex items-center gap-3 font-display text-2xl font-bold text-slate-50"
           >
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-300 to-cyan-500 font-sans text-sm font-black text-slate-950 shadow-lg shadow-teal-950/40">
+              TF
+            </span>
             TaskFlow
           </Link>
-          <p className="mt-1 text-xs text-brand-700/65">
+          <p className="mt-2 text-xs text-slate-500">
             Gestão de atividades e processos
           </p>
         </div>
@@ -120,7 +123,7 @@ export function AppSidebar({
         <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
           {SECTIONS.map((section) => (
             <div key={section.title}>
-              <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-brand-700/50">
+              <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
                 {section.title}
               </p>
               <ul className="space-y-1">
@@ -134,10 +137,10 @@ export function AppSidebar({
                         onClick={onClose}
                         className={`block rounded-lg px-3 py-2.5 transition ${
                           active
-                            ? "bg-brand-700 text-white"
+                            ? "bg-gradient-to-r from-teal-500/25 to-cyan-500/10 text-teal-100 ring-1 ring-teal-400/25"
                             : isRecurring
-                              ? "border border-brand-500/25 bg-brand-50 text-brand-900 hover:bg-brand-100"
-                              : "text-brand-800 hover:bg-brand-50"
+                              ? "border border-teal-400/15 bg-teal-400/5 text-slate-200 hover:bg-teal-400/10"
+                              : "text-slate-300 hover:bg-slate-900 hover:text-white"
                         }`}
                       >
                         <span className="block text-sm font-medium">
@@ -146,7 +149,7 @@ export function AppSidebar({
                         {item.description && (
                           <span
                             className={`mt-0.5 block text-xs ${
-                              active ? "text-white/75" : "text-brand-700/60"
+                              active ? "text-teal-100/65" : "text-slate-500"
                             }`}
                           >
                             {item.description}
@@ -161,11 +164,11 @@ export function AppSidebar({
           ))}
         </nav>
 
-        <div className="border-t border-[var(--line)] p-3">
+        <div className="border-t border-slate-800 p-3">
           <button
             type="button"
             onClick={logout}
-            className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-brand-700 hover:bg-brand-50"
+            className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-400 transition hover:bg-rose-400/10 hover:text-rose-300"
           >
             Sair
           </button>
@@ -194,16 +197,16 @@ export function AppShell({
   }, [pathname]);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-transparent">
       <AppSidebar open={open} onClose={() => setOpen(false)} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-white/80 backdrop-blur">
+        <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/75 backdrop-blur-xl">
           <div className="flex items-center gap-3 px-4 py-3 md:px-6">
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--line)] text-brand-700 md:hidden"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-700 text-slate-300 md:hidden"
               aria-label="Abrir menu"
             >
               <span className="text-lg leading-none">☰</span>
@@ -212,11 +215,11 @@ export function AppShell({
             <div className="min-w-0 flex-1">
               {title ? (
                 <>
-                  <h1 className="truncate font-display text-xl font-semibold text-brand-900 md:text-2xl">
+                  <h1 className="truncate font-display text-xl font-semibold text-slate-50 md:text-2xl">
                     {title}
                   </h1>
                   {subtitle && (
-                    <p className="truncate text-sm text-brand-700/70">
+                    <p className="truncate text-sm text-slate-400">
                       {subtitle}
                     </p>
                   )}

@@ -4,7 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { apiFetch, getAccessToken, TaskItem } from "@/lib/api";
+import {
+  apiDownload,
+  apiFetch,
+  getAccessToken,
+  STATUS_LABELS,
+  TaskItem,
+  TeamItem,
+} from "@/lib/api";
 
 const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED"]);
 
@@ -27,7 +34,13 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [teams, setTeams] = useState<TeamItem[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [reportAction, setReportAction] = useState<"pdf" | "email" | null>(
+    null,
+  );
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,10 +52,13 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
     Promise.all([
       apiFetch<Profile>("/users/me"),
       apiFetch<Task[]>("/tasks"),
+      mode === "team" ? apiFetch<TeamItem[]>("/teams") : Promise.resolve([]),
     ])
-      .then(([user, availableTasks]) => {
+      .then(([user, availableTasks, availableTeams]) => {
         setProfile(user);
         setTasks(availableTasks);
+        setTeams(availableTeams);
+        setSelectedTeamId((current) => current || availableTeams[0]?.id || "");
       })
       .catch((reason: unknown) => {
         const message =
@@ -55,24 +71,39 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
         setError(message);
       })
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [mode, router]);
 
   const visibleTasks = useMemo(() => {
     if (!profile) return [];
     return tasks.filter((task) =>
-      mode === "personal" ? task.assignee.id === profile.id : Boolean(task.team),
+      mode === "personal"
+        ? task.assignee.id === profile.id
+        : Boolean(task.team) &&
+          (!selectedTeamId || task.team?.id === selectedTeamId),
     );
-  }, [mode, profile, tasks]);
+  }, [mode, profile, selectedTeamId, tasks]);
 
   const todayTasks = useMemo(
-    () => visibleTasks.filter((task) => isToday(task.startAt)),
+    () =>
+      visibleTasks
+        .filter((task) => isToday(task.startAt))
+        .sort((a, b) => urgencyScore(b) - urgencyScore(a)),
     [visibleTasks],
   );
   const completed = todayTasks.filter((task) => task.status === "COMPLETED");
-  const overdue = todayTasks.filter((task) => task.derivedStatus === "OVERDUE");
+  const overdue = visibleTasks
+    .filter((task) => task.derivedStatus === "OVERDUE")
+    .sort((a, b) => urgencyScore(b) - urgencyScore(a));
   const pending = todayTasks.filter(
     (task) => !TERMINAL_STATUSES.has(task.status),
   );
+  const urgent = [
+    ...overdue,
+    ...pending.filter(
+      (task) =>
+        task.priority === "HIGH" && task.derivedStatus !== "OVERDUE",
+    ),
+  ].sort((a, b) => urgencyScore(b) - urgencyScore(a));
   const morning = todayTasks.filter(
     (task) => new Date(task.startAt).getHours() < 12,
   );
@@ -86,6 +117,47 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
     day: "2-digit",
     month: "long",
   }).format(new Date());
+
+  async function downloadPdf() {
+    setFeedback(null);
+    setReportAction("pdf");
+    const teamQuery =
+      mode === "team" && selectedTeamId ? `?teamId=${selectedTeamId}` : "";
+    try {
+      await apiDownload(`/reports/tasks.pdf${teamQuery}`);
+      setFeedback("PDF gerado e baixado com sucesso.");
+    } catch (reason) {
+      setFeedback(
+        reason instanceof Error ? reason.message : "Falha ao gerar o PDF.",
+      );
+    } finally {
+      setReportAction(null);
+    }
+  }
+
+  async function emailTeam() {
+    if (!selectedTeamId) return;
+    setFeedback(null);
+    setReportAction("email");
+    try {
+      const result = await apiFetch<{ recipients: number; team: string }>(
+        "/reports/tasks/email",
+        {
+          method: "POST",
+          body: JSON.stringify({ teamId: selectedTeamId }),
+        },
+      );
+      setFeedback(
+        `Relatório enviado para ${result.recipients} integrante(s) de ${result.team}.`,
+      );
+    } catch (reason) {
+      setFeedback(
+        reason instanceof Error ? reason.message : "Falha ao enviar o e-mail.",
+      );
+    } finally {
+      setReportAction(null);
+    }
+  }
 
   if (loading) {
     return <PageMessage>Carregando atividades…</PageMessage>;
@@ -106,22 +178,79 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
           : "Visão geral das atividades das suas equipes."
       }
       actions={
-        <Link
-          href="/tasks/new"
-          className="rounded-md bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-900"
-        >
-          Nova atividade
-        </Link>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={downloadPdf}
+            disabled={reportAction !== null}
+            className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-400/20 disabled:opacity-50"
+          >
+            {reportAction === "pdf" ? "Gerando…" : "↓ Baixar PDF"}
+          </button>
+          {!isPersonal && (
+            <button
+              type="button"
+              onClick={emailTeam}
+              disabled={!selectedTeamId || reportAction !== null}
+              className="rounded-lg border border-teal-400/30 bg-teal-400/10 px-3 py-2 text-sm font-semibold text-teal-200 transition hover:bg-teal-400/20 disabled:opacity-50"
+            >
+              {reportAction === "email" ? "Enviando…" : "✉ Enviar à equipe"}
+            </button>
+          )}
+          <Link
+            href="/tasks/new"
+            className="rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-teal-400"
+          >
+            + Nova atividade
+          </Link>
+        </div>
       }
     >
+      {!isPersonal && (
+        <section className="mb-5 flex flex-col gap-3 rounded-xl border border-slate-700/80 bg-slate-900/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-100">
+              Equipe em foco
+            </p>
+            <p className="text-xs text-slate-400">
+              Filtre a visão antes de gerar ou enviar o relatório.
+            </p>
+          </div>
+          <select
+            value={selectedTeamId}
+            onChange={(event) => setSelectedTeamId(event.target.value)}
+            className="min-w-56 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none ring-teal-400 focus:ring-2"
+          >
+            {teams.length === 0 && <option value="">Nenhuma equipe</option>}
+            {teams.map((team) => (
+              <option key={team.id} value={team.id}>
+                {team.name}
+              </option>
+            ))}
+          </select>
+        </section>
+      )}
+
+      {feedback && (
+        <div className="mb-5 rounded-lg border border-teal-400/25 bg-teal-400/10 px-4 py-3 text-sm text-teal-100">
+          {feedback}
+        </div>
+      )}
+
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Kpi value={String(todayTasks.length)} label={todayLabel} />
-        <Kpi value={String(completed.length)} label="Concluídas" />
-        <Kpi value={String(pending.length)} label="Pendentes" />
-        <Kpi value={String(overdue.length)} label="Atrasadas" />
+        <Kpi value={String(todayTasks.length)} label={todayLabel} tone="info" />
+        <Kpi value={String(completed.length)} label="Concluídas" tone="success" />
+        <Kpi value={String(pending.length)} label="Pendentes" tone="warning" />
+        <Kpi
+          value={String(overdue.length)}
+          label="Atrasadas acumuladas"
+          tone="danger"
+        />
         <Kpi value={formatMinutes(completedMinutes)} label="Tempo concluído" />
         <Kpi value={formatMinutes(pendingMinutes)} label="Tempo pendente" />
       </section>
+
+      <UrgentQueue tasks={urgent} mode={mode} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <AgendaColumn title="Manhã" tasks={morning} mode={mode} />
@@ -137,12 +266,79 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
   );
 }
 
-function Kpi({ value, label }: { value: string; label: string }) {
+function Kpi({
+  value,
+  label,
+  tone = "neutral",
+}: {
+  value: string;
+  label: string;
+  tone?: "neutral" | "info" | "success" | "warning" | "danger";
+}) {
+  const tones = {
+    neutral: "border-slate-700 text-slate-100",
+    info: "border-cyan-400/30 text-cyan-300",
+    success: "border-teal-400/30 text-teal-300",
+    warning: "border-amber-400/30 text-amber-300",
+    danger: "border-rose-400/40 text-rose-300",
+  };
   return (
-    <div className="rounded-lg border border-[var(--line)] bg-white/80 px-3 py-3">
+    <div
+      className={`rounded-xl border bg-slate-900/80 px-3 py-3 shadow-lg shadow-black/10 ${tones[tone]}`}
+    >
       <p className="text-2xl font-semibold tabular-nums">{value}</p>
-      <p className="truncate text-xs capitalize text-brand-700/70">{label}</p>
+      <p className="truncate text-xs capitalize text-slate-400">{label}</p>
     </div>
+  );
+}
+
+function UrgentQueue({ tasks, mode }: { tasks: Task[]; mode: ViewMode }) {
+  return (
+    <section className="mb-7 overflow-hidden rounded-2xl border border-rose-400/25 bg-gradient-to-br from-rose-500/10 via-slate-900/90 to-slate-950">
+      <div className="flex items-center justify-between border-b border-rose-400/15 px-5 py-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-300">
+            Foco imediato
+          </p>
+          <h2 className="mt-1 font-display text-xl font-semibold text-slate-50">
+            Demandas que exigem atenção
+          </h2>
+        </div>
+        <span className="rounded-full bg-rose-400/15 px-3 py-1 text-sm font-bold tabular-nums text-rose-200">
+          {tasks.length}
+        </span>
+      </div>
+      {tasks.length === 0 ? (
+        <p className="px-5 py-6 text-sm text-slate-400">
+          Tudo sob controle: nenhuma demanda urgente para hoje.
+        </p>
+      ) : (
+        <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+          {tasks.map((task) => (
+            <Link
+              key={task.id}
+              href={`/tasks/${task.id}`}
+              className="group rounded-xl border border-slate-700 bg-slate-950/75 p-4 transition hover:-translate-y-0.5 hover:border-rose-400/50 hover:shadow-xl hover:shadow-rose-950/20"
+            >
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <StatusBadge task={task} />
+                <span className="text-xs tabular-nums text-slate-400">
+                  {formatTime(task.startAt)}–{formatTime(task.endAt)}
+                </span>
+              </div>
+              <p className="line-clamp-2 font-semibold text-slate-100 group-hover:text-white">
+                {task.title}
+              </p>
+              <p className="mt-2 truncate text-xs text-slate-400">
+                {mode === "team"
+                  ? `${task.assignee.fullName} · ${task.team?.name ?? "Equipe"}`
+                  : task.team?.name ?? "Atividade pessoal"}
+              </p>
+            </Link>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -156,10 +352,12 @@ function AgendaColumn({
   mode: ViewMode;
 }) {
   return (
-    <section className="rounded-xl border border-[var(--line)] bg-white/80 p-4">
-      <h2 className="mb-3 font-display text-lg font-semibold">{title}</h2>
+    <section className="rounded-2xl border border-slate-700/80 bg-slate-900/75 p-4 shadow-xl shadow-black/10">
+      <h2 className="mb-3 font-display text-lg font-semibold text-slate-100">
+        {title}
+      </h2>
       {tasks.length === 0 ? (
-        <p className="py-5 text-center text-sm text-brand-700/60">
+        <p className="py-5 text-center text-sm text-slate-500">
           Nenhuma atividade neste período.
         </p>
       ) : (
@@ -168,17 +366,28 @@ function AgendaColumn({
             <li key={task.id}>
               <Link
                 href={`/tasks/${task.id}`}
-                className="flex items-start gap-3 rounded-md border border-[var(--line)] bg-[var(--bg-base)] px-3 py-2 transition hover:border-brand-500/40"
+                className={`flex items-start gap-3 rounded-xl border bg-slate-950/70 px-3 py-3 transition hover:-translate-y-0.5 hover:shadow-lg ${
+                  task.derivedStatus === "OVERDUE"
+                    ? "border-rose-400/40 hover:border-rose-300/70"
+                    : task.priority === "HIGH"
+                      ? "border-amber-400/35 hover:border-amber-300/60"
+                      : "border-slate-700 hover:border-teal-400/40"
+                }`}
               >
                 <span
                   className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${priorityDot[task.priority]}`}
                 />
-                <div className="min-w-0">
-                  <p className="text-xs text-brand-700/60">
-                    {formatTime(task.startAt)}–{formatTime(task.endAt)}
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <p className="text-xs text-slate-400">
+                      {formatTime(task.startAt)}–{formatTime(task.endAt)}
+                    </p>
+                    <StatusBadge task={task} />
+                  </div>
+                  <p className="truncate text-sm font-medium text-slate-100">
+                    {task.title}
                   </p>
-                  <p className="truncate text-sm font-medium">{task.title}</p>
-                  <p className="truncate text-xs text-brand-700/60">
+                  <p className="truncate text-xs text-slate-400">
                     {mode === "team"
                       ? `${task.team?.name ?? "Equipe"} · ${task.assignee.fullName}`
                       : task.team?.name ?? "Atividade pessoal"}
@@ -206,25 +415,28 @@ function TaskList({
 }) {
   return (
     <div
-      className={`rounded-xl border bg-white/80 p-4 ${
-        danger ? "border-priority-high/40" : "border-[var(--line)]"
+      className={`rounded-2xl border bg-slate-900/75 p-4 ${
+        danger ? "border-rose-400/40" : "border-slate-700/80"
       }`}
     >
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        <span className="text-xs tabular-nums text-brand-700/60">
+        <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
+        <span className="text-xs tabular-nums text-slate-400">
           {tasks.length}
         </span>
       </div>
       {tasks.length === 0 ? (
-        <p className="text-sm text-brand-700/60">Nenhuma atividade.</p>
+        <p className="text-sm text-slate-500">Nenhuma atividade.</p>
       ) : (
-        <ul className="space-y-2 text-sm text-brand-700/80">
+        <ul className="space-y-2 text-sm text-slate-300">
           {tasks.map((task) => (
-            <li key={task.id} className="border-t border-[var(--line)] pt-2">
+            <li key={task.id} className="border-t border-slate-700 pt-2">
               <Link href={`/tasks/${task.id}`} className="block hover:underline">
-                <p className="font-medium text-brand-900">{task.title}</p>
-                <p className="text-xs text-brand-700/60">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium text-slate-100">{task.title}</p>
+                  <StatusBadge task={task} />
+                </div>
+                <p className="text-xs text-slate-400">
                   {mode === "team"
                     ? `${task.team?.name ?? "Equipe"} · ${task.assignee.fullName}`
                     : `${formatTime(task.startAt)}–${formatTime(task.endAt)}`}
@@ -235,6 +447,29 @@ function TaskList({
         </ul>
       )}
     </div>
+  );
+}
+
+function StatusBadge({ task }: { task: Task }) {
+  const overdue = task.derivedStatus === "OVERDUE";
+  const label = overdue
+    ? STATUS_LABELS.OVERDUE
+    : task.priority === "HIGH"
+      ? "Alta prioridade"
+      : STATUS_LABELS[task.derivedStatus] ?? task.derivedStatus;
+  const color = overdue
+    ? "border-rose-400/30 bg-rose-400/15 text-rose-200"
+    : task.priority === "HIGH"
+      ? "border-amber-400/30 bg-amber-400/15 text-amber-200"
+      : task.status === "COMPLETED"
+        ? "border-teal-400/25 bg-teal-400/10 text-teal-200"
+        : "border-slate-600 bg-slate-800 text-slate-300";
+  return (
+    <span
+      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${color}`}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -262,6 +497,14 @@ function isToday(value: string) {
     date.getMonth() === today.getMonth() &&
     date.getDate() === today.getDate()
   );
+}
+
+function urgencyScore(task: Task) {
+  if (task.derivedStatus === "OVERDUE") return 100;
+  if (TERMINAL_STATUSES.has(task.status)) return 0;
+  if (task.priority === "HIGH") return 75;
+  if (task.priority === "MEDIUM") return 45;
+  return 20;
 }
 
 function formatTime(value: string) {

@@ -40,6 +40,91 @@ function toLocalTime(value: string) {
   }).format(new Date(value));
 }
 
+function durationBetween(start: string, end: string) {
+  const [startHour, startMinute] = start.split(":").map(Number);
+  const [endHour, endMinute] = end.split(":").map(Number);
+  return Math.max(0, endHour * 60 + endMinute - startHour * 60 - startMinute);
+}
+
+function formatDuration(total: number) {
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (!hours) return `${minutes} min`;
+  return minutes ? `${hours}h ${minutes}min` : `${hours}h`;
+}
+
+function EstimateReality({
+  estimatedMinutes,
+  actualMinutes,
+  completedAt,
+}: {
+  estimatedMinutes: number;
+  actualMinutes: number | null;
+  completedAt?: string | null;
+}) {
+  const difference =
+    actualMinutes === null ? null : actualMinutes - estimatedMinutes;
+  const differenceLabel =
+    difference === null
+      ? "Finalize a atividade para calcular o tempo real."
+      : difference === 0
+        ? "Finalizada exatamente dentro da estimativa."
+        : difference > 0
+          ? `${formatDuration(difference)} acima do previsto`
+          : `${formatDuration(Math.abs(difference))} abaixo do previsto`;
+
+  return (
+    <section className="rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-400/10 via-slate-900 to-slate-950 p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
+            Estimativa × realidade
+          </p>
+          <h2 className="mt-1 text-lg font-semibold text-slate-50">
+            Tempo para finalizar
+          </h2>
+        </div>
+        {completedAt && (
+          <span className="text-right text-xs text-slate-400">
+            Concluída em
+            <strong className="block text-slate-200">
+              {new Intl.DateTimeFormat("pt-BR", {
+                dateStyle: "short",
+                timeStyle: "short",
+              }).format(new Date(completedAt))}
+            </strong>
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-slate-700 bg-slate-950/70 p-4">
+          <p className="text-xs uppercase tracking-wide text-slate-500">
+            Estimado
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-cyan-200">
+            {formatDuration(estimatedMinutes)}
+          </p>
+        </div>
+        <div className="rounded-xl border border-slate-700 bg-slate-950/70 p-4">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Real</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-teal-200">
+            {actualMinutes === null ? "—" : formatDuration(actualMinutes)}
+          </p>
+        </div>
+      </div>
+      <p
+        className={`mt-3 text-sm ${
+          difference !== null && difference > 0
+            ? "text-amber-300"
+            : "text-slate-400"
+        }`}
+      >
+        {differenceLabel}
+      </p>
+    </section>
+  );
+}
+
 
 export default function TaskDetailPage() {
   const params = useParams<{ id: string }>();
@@ -192,7 +277,7 @@ export default function TaskDetailPage() {
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm">
-            <span className="mb-1 block">Início</span>
+            <span className="mb-1 block">Início previsto</span>
             <select
               value={start}
               onChange={(e) => setStart(e.target.value)}
@@ -206,7 +291,7 @@ export default function TaskDetailPage() {
             </select>
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block">Fim</span>
+            <span className="mb-1 block">Fim previsto</span>
             <select
               value={end}
               onChange={(e) => setEnd(e.target.value)}
@@ -220,6 +305,11 @@ export default function TaskDetailPage() {
             </select>
           </label>
         </div>
+        <EstimateReality
+          estimatedMinutes={durationBetween(start, end)}
+          actualMinutes={task.actualDurationMinutes ?? null}
+          completedAt={task.actualEndAt}
+        />
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm">
             <span className="mb-1 block">Prioridade</span>

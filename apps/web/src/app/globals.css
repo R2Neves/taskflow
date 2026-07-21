@@ -3,30 +3,95 @@
 @tailwind utilities;
 
 :root {
-  --bg-base: #f3f7f4;
-  --bg-panel: #ffffff;
-  --ink: #123028;
-  --accent: #2f6f55;
-  --line: #d7e5dd;
+  color-scheme: dark;
+  --bg-base: #050b14;
+  --bg-panel: #0f172a;
+  --ink: #e5edf7;
+  --accent: #2dd4bf;
+  --line: #243244;
 }
 
 body {
   background:
-    radial-gradient(ellipse 80% 50% at 10% -10%, #d5ebe0 0%, transparent 55%),
-    radial-gradient(ellipse 60% 40% at 100% 0%, #e8f0ea 0%, transparent 50%),
+    radial-gradient(ellipse 80% 50% at 10% -10%, #0f3b3a 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, #142b47 0%, transparent 50%),
     var(--bg-base);
   color: var(--ink);
+  min-height: 100vh;
+}
+
+* {
+  scrollbar-color: #334155 #07111f;
+}
+
+::selection {
+  background: rgba(45, 212, 191, 0.3);
+  color: #f8fafc;
+}
+
+input,
+select,
+textarea {
+  background-color: #07111f;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #64748b;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #2dd4bf;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.12);
+  outline: none;
+}
+
+/* Compatibilidade dark para as telas existentes. */
+.bg-white,
+.bg-white\/80,
+.bg-white\/90,
+.bg-white\/95 {
+  background-color: rgba(15, 23, 42, 0.94) !important;
+}
+
+.bg-brand-50,
+.bg-brand-100 {
+  background-color: rgba(20, 184, 166, 0.09) !important;
+}
+
+.text-brand-900,
+.text-brand-800 {
+  color: #f1f5f9 !important;
+}
+
+.text-brand-700 {
+  color: #94a3b8 !important;
+}
+
+[class*="text-brand-700/"] {
+  color: #94a3b8 !important;
+}
+
+.border-brand-500\/25 {
+  border-color: rgba(45, 212, 191, 0.25) !important;
 }
 
 .fc {
   --fc-border-color: var(--line);
-  --fc-button-bg-color: #1f4d3b;
-  --fc-button-border-color: #1f4d3b;
-  --fc-button-hover-bg-color: #123028;
-  --fc-button-hover-border-color: #123028;
-  --fc-button-active-bg-color: #123028;
-  --fc-button-active-border-color: #123028;
-  --fc-today-bg-color: #eef7f2;
+  --fc-page-bg-color: #0f172a;
+  --fc-neutral-bg-color: #111827;
+  --fc-list-event-hover-bg-color: #172033;
+  --fc-button-bg-color: #0f766e;
+  --fc-button-border-color: #0f766e;
+  --fc-button-hover-bg-color: #14b8a6;
+  --fc-button-hover-border-color: #14b8a6;
+  --fc-button-active-bg-color: #2dd4bf;
+  --fc-button-active-border-color: #2dd4bf;
+  --fc-today-bg-color: rgba(45, 212, 191, 0.08);
   font-family: "DM Sans", system-ui, sans-serif;
 }
 

@@ -37,6 +37,33 @@ export async function apiFetch<T>(
   return response.json() as Promise<T>;
 }
 
+export async function apiDownload(path: string) {
+  const token = getAccessToken();
+  const response = await fetch(`${API}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (response.status === 401) throw new Error("UNAUTHORIZED");
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const message = Array.isArray(body.message)
+      ? body.message.join(", ")
+      : body.message;
+    throw new Error(message ?? "Falha ao gerar relatório");
+  }
+
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename =
+    disposition.match(/filename="([^"]+)"/)?.[1] ?? "taskflow-demandas.pdf";
+  const url = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH";
 
 export type TaskItem = {
@@ -47,6 +74,11 @@ export type TaskItem = {
   startAt: string;
   endAt: string;
   date: string;
+  createdAt: string;
+  updatedAt: string;
+  actualStartAt?: string | null;
+  actualEndAt?: string | null;
+  actualDurationMinutes?: number | null;
   priority: TaskPriority;
   status: string;
   derivedStatus: string;

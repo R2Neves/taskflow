@@ -49,7 +49,7 @@ export default function RegisterPage() {
       <Link
         href="/"
         className="self-center"
-        aria-label="CodeForge Systems — início"
+        aria-label="TaskFlow — início"
       >
         <BrandLogo className="h-48 w-64" priority />
       </Link>

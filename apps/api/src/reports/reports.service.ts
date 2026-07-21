@@ -119,7 +119,7 @@ export class ReportsService {
         bcc: recipients,
         subject:
           dto.subject?.trim() ||
-          `CodeForge Systems | Relatório de demandas — ${membership.team.name}`,
+          `TaskFlow | Relatório de demandas — ${membership.team.name}`,
         html: this.emailTemplate({
           teamName: membership.team.name,
           period: reportResult.report.period,
@@ -209,8 +209,8 @@ export class ReportsService {
       margin: 42,
       bufferPages: true,
       info: {
-        Title: `CodeForge Systems - ${report.title}`,
-        Author: "CodeForge Systems",
+        Title: `TaskFlow - ${report.title}`,
+        Author: "TaskFlow",
         Subject: "Relatório de demandas",
       },
     });
@@ -258,7 +258,7 @@ export class ReportsService {
         .fontSize(8)
         .fillColor("#64748B")
         .text(
-          `CodeForge Systems • Gerado em ${new Intl.DateTimeFormat("pt-BR", {
+          `TaskFlow • Gerado em ${new Intl.DateTimeFormat("pt-BR", {
             dateStyle: "short",
             timeStyle: "short",
           }).format(new Date())}`,
@@ -289,7 +289,7 @@ export class ReportsService {
       .font("Helvetica-Bold")
       .fontSize(20)
       .fillColor("#F8FAFC")
-      .text("CodeForge Systems", 86, 42);
+      .text("TaskFlow", 86, 42);
     doc
       .font("Helvetica")
       .fontSize(9)
@@ -319,7 +319,7 @@ export class ReportsService {
       .font("Helvetica-Bold")
       .fontSize(14)
       .fillColor("#F8FAFC")
-      .text("CodeForge Systems", 42, 24);
+      .text("TaskFlow", 42, 24);
     doc
       .font("Helvetica")
       .fontSize(9)
@@ -479,7 +479,7 @@ export class ReportsService {
               ${this.emailMetric("Atrasadas", input.summary.overdue, "#f97316")}
               ${this.emailMetric("Concluídas", input.summary.completed, "#2dd4bf")}
             </div>
-            <p style="margin-bottom:0;font-size:12px;color:#64748b">Mensagem enviada automaticamente pela CodeForge Systems.</p>
+            <p style="margin-bottom:0;font-size:12px;color:#64748b">Mensagem enviada automaticamente pelo TaskFlow.</p>
           </div>
         </div>
       </div>

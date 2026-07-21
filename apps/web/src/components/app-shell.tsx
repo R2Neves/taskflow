@@ -127,7 +127,7 @@ export function AppSidebar({
             href="/dashboard"
             onClick={onClose}
             className="block"
-            aria-label="CodeForge Systems — início"
+            aria-label="TaskFlow — início"
           >
             <BrandLogo className="h-28 w-full" priority />
           </Link>
@@ -246,7 +246,7 @@ export function AppShell({
                 <Link
                   href="/dashboard"
                   className="md:hidden"
-                  aria-label="CodeForge Systems — início"
+                  aria-label="TaskFlow — início"
                 >
                   <BrandLogo className="h-10 w-28" />
                 </Link>

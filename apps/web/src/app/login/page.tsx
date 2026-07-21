@@ -44,7 +44,7 @@ export default function LoginPage() {
       <Link
         href="/"
         className="self-center"
-        aria-label="CodeForge Systems — início"
+        aria-label="TaskFlow — início"
       >
         <BrandLogo className="h-64 w-80" priority />
       </Link>

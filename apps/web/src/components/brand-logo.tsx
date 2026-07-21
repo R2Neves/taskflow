@@ -9,10 +9,10 @@ export function BrandLogo({
 }) {
   return (
     <Image
-      src="/codeforge-logo.svg"
-      alt="CodeForge Systems"
-      width={500}
-      height={400}
+      src="/taskflow-logo.png"
+      alt="TaskFlow"
+      width={423}
+      height={328}
       priority={priority}
       className={`object-contain ${className}`}
     />

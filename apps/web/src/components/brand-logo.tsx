@@ -11,8 +11,8 @@ export function BrandLogo({
     <Image
       src="/taskflow-logo.png"
       alt="TaskFlow"
-      width={423}
-      height={328}
+      width={681}
+      height={342}
       priority={priority}
       className={`object-contain ${className}`}
     />

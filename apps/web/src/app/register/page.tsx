@@ -4,8 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
+import { API_BASE } from "@/lib/api";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -21,7 +20,7 @@ export default function RegisterPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/auth/register`, {
+      const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fullName, email, password, confirmPassword }),
@@ -51,9 +50,9 @@ export default function RegisterPage() {
         className="self-center"
         aria-label="TaskFlow — início"
       >
-        <BrandLogo className="h-48 w-64" priority />
+        <BrandLogo className="h-auto w-64" priority />
       </Link>
-      <h1 className="-mt-2 text-center text-xl font-semibold">Criar conta</h1>
+      <h1 className="mt-4 text-center text-xl font-semibold">Criar conta</h1>
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <label className="block text-sm">
           <span className="mb-1 block text-brand-700">Nome completo</span>

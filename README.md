@@ -7,7 +7,7 @@ Sistema web de gestão de atividades individuais e em equipe.
 | Documento | Conteúdo |
 |-----------|----------|
 | [docs/DOCUMENTACAO_ANALISTA.md](docs/DOCUMENTACAO_ANALISTA.md) | Repasse técnico completo |
-| [docs/DEPLOY.md](docs/DEPLOY.md) | Setup / deploy local |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Servidor central na LAN e setup local |
 | [docs/Atividades_Recorrentes/CHECKLIST_RECORRENTES.md](docs/Atividades_Recorrentes/CHECKLIST_RECORRENTES.md) | Feature de processos mensais |
 | [CHANGELOG.md](CHANGELOG.md) | Histórico de versões |
 
@@ -20,19 +20,23 @@ Sistema web de gestão de atividades individuais e em equipe.
 ## Pré-requisitos
 
 - Node.js 20+
-- Docker (PostgreSQL)
+- Docker Desktop
 
 ## Setup
 
 ```bash
 cp .env.example .env
-docker compose up -d
+docker compose up -d postgres
 npm install
 npm run db:generate
 npm run db:push
 ```
 
 > Execute os comandos npm **dentro** da pasta `taskflow` (onde está o `package.json`).
+
+Para executar a pilha central compartilhada na rede, siga
+[docs/DEPLOY.md](docs/DEPLOY.md). O acesso dos usuários deve ser feito pelo IP
+do servidor, nunca pelo `localhost` de cada computador.
 
 ## Desenvolvimento
 
@@ -61,7 +65,7 @@ taskflow/
   apps/api          # NestJS + Prisma
   packages/shared   # Tipos compartilhados
   docs/             # Documentação do analista
-  docker-compose.yml
+  docker-compose.yml      # PostgreSQL + API + Web
   docker/postgres/init  # role somente leitura
 ```
 

@@ -1,21 +1,23 @@
 # Deploy / Setup — TaskFlow
 
-> Guia passo a passo para analistas subirem o ambiente em uma workstation ou servidor de desenvolvimento.  
-> Última atualização: 2026-07-20
+> Guia para operar o servidor central da rede interna e o ambiente local de desenvolvimento.  
+> Última atualização: 2026-07-22
 
 ---
 
 ## Visão geral
 
-O TaskFlow roda em **três processos**:
+O TaskFlow roda em **três serviços Docker** no servidor central:
 
-| Serviço | Função | Porta |
-|---------|--------|-------|
-| `taskflow-postgres` (Docker) | Banco PostgreSQL 16 | 5432 |
-| API NestJS | Backend `/api/v1` | 3001 |
-| Web Next.js | Frontend | 3000 |
+| Serviço | Função | Porta no host |
+|---------|--------|---------------|
+| `taskflow-postgres` (Docker) | Banco PostgreSQL 16 | `127.0.0.1:5433` (tooling local) |
+| API NestJS | Backend `/api/v1` | interna (rede Docker) |
+| Web Next.js | Frontend + proxy `/api/v1` | `3080` |
 
-Neste momento o `docker-compose.yml` sobe **apenas o Postgres**. API e Web rodam via npm no host.
+O `docker-compose.yml` sobe a pilha completa. Apenas a Web é publicada na rede
+pela porta **3080** (evita conflito com outras apps na 3000). API e PostgreSQL
+ficam na rede interna do Docker.
 
 ---
 
@@ -23,7 +25,7 @@ Neste momento o `docker-compose.yml` sobe **apenas o Postgres**. API e Web rodam
 
 1. **Node.js 20+**
 2. **Docker** e **Docker Compose**
-3. Portas **3000**, **3001** e **5432** livres
+3. Porta **3080** livre na rede; **5433** livre em localhost
 4. Cópia do projeto (pasta `taskflow`)
 
 ### Verificar
@@ -36,7 +38,84 @@ docker compose version
 
 ---
 
-## Opção A — Setup local (recomendado)
+## Opção A — Servidor central na rede interna (recomendado)
+
+Use um computador Windows que permaneça ligado e conectado à rede privada da
+empresa. Reserve um IP fixo para ele no roteador/DHCP.
+
+### 1. Configurar o ambiente
+
+```powershell
+cd C:\Projetos_Em_Geral\taskflow
+copy .env.example .env
+```
+
+No `.env`:
+
+- troque os segredos JWT por valores longos e aleatórios;
+- defina `PUBLIC_APP_URL=http://IP_DO_SERVIDOR:3080`;
+- configure SMTP, se os relatórios por e-mail forem utilizados;
+- não versione nem envie o arquivo `.env`.
+
+### 2. Liberar o acesso na rede
+
+Abra o PowerShell como Administrador e execute:
+
+```powershell
+.\scripts\lan\configure-firewall.ps1
+```
+
+O script libera somente TCP **3080** no perfil de rede **Privada**. Não exponha
+3001 nem 5432/5433 no firewall ou no roteador.
+
+### 3. Iniciar e verificar
+
+```powershell
+.\scripts\lan\start-taskflow.ps1
+.\scripts\lan\status-taskflow.ps1
+```
+
+Todos devem acessar o endereço exibido pelo segundo script, por exemplo
+`http://192.168.1.20:3080`. Não use `localhost` nos computadores dos usuários.
+
+O Docker reinicia os serviços automaticamente. Configure o Docker Desktop para
+iniciar com o Windows.
+
+### 4. Atualizar uma instalação central
+
+```powershell
+git pull
+.\scripts\lan\start-taskflow.ps1
+```
+
+O script reconstrói as imagens e preserva o volume do PostgreSQL.
+
+### 5. Parar sem apagar dados
+
+```powershell
+.\scripts\lan\stop-taskflow.ps1
+```
+
+## Migração dos dados do computador do Felipe
+
+1. Felipe gera um backup completo do PostgreSQL local e entrega o arquivo ao
+   responsável pela infraestrutura.
+2. O responsável valida e arquiva uma cópia do banco central atual.
+3. Um operador humano restaura o backup no PostgreSQL central. O agente Cursor
+   não executa restaurações nem outras mutações no banco.
+4. Após a restauração, valide por consulta que usuários, equipes, atividades e
+   seus relacionamentos foram preservados.
+5. Confirme o acesso de `flima@beautyservices.com.br` e do administrador pela
+   URL de rede. Se o administrador não existir no backup, cadastre-o pela
+   própria aplicação.
+
+Não combine bancos manualmente: IDs de usuários, equipes e atividades possuem
+relacionamentos. O backup do Felipe deve ser tratado como a origem escolhida.
+Checklist detalhado: [MIGRACAO_DADOS_FELIPE.md](MIGRACAO_DADOS_FELIPE.md).
+
+---
+
+## Opção B — Setup local para desenvolvimento
 
 Execute **sempre** a partir da pasta do projeto:
 
@@ -57,7 +136,7 @@ Edite `.env` se necessário (segredos JWT em produção).
 ### 2. Banco
 
 ```powershell
-docker compose up -d
+docker compose up -d postgres
 npm install
 npm run db:generate
 npm run db:push
@@ -65,7 +144,7 @@ npm run db:push
 
 | Comando | O que faz |
 |---------|-----------|
-| `docker compose up -d` | Sobe Postgres + aplica init do role readonly (volume novo) |
+| `docker compose up -d postgres` | Sobe somente Postgres para desenvolvimento |
 | `npm run db:generate` | Gera Prisma Client |
 | `npm run db:push` | Sincroniza schema Prisma → banco (**setup humano**) |
 
@@ -93,7 +172,7 @@ npm run dev:web
 
 ---
 
-## Opção B — Migrar para outra máquina
+## Opção C — Migrar o código para outra máquina
 
 ### Na origem
 
@@ -117,7 +196,7 @@ npm run dev:web
 ### Cenário 1 — Nova instalação
 
 1. `copy .env.example .env`
-2. `docker compose up -d`
+2. `docker compose up -d postgres`
 3. `npm install && npm run db:generate && npm run db:push`
 4. `npm run dev:api` + `npm run dev:web`
 5. Criar conta em `/register`
@@ -178,7 +257,8 @@ npm run db:assert-readonly
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Segredos JWT |
 | `API_PORT` | Porta da API (padrão 3001) |
 | `CORS_ORIGIN` | Origem permitida (padrão http://localhost:3000) |
-| `NEXT_PUBLIC_API_URL` | URL da API no browser |
+| `PUBLIC_APP_URL` | URL compartilhada da Web na rede interna |
+| `INTERNAL_API_URL` | Destino server-side do proxy Web → API |
 
 Detalhes: [DOCUMENTACAO_ANALISTA.md](DOCUMENTACAO_ANALISTA.md#9-variáveis-de-ambiente).
 
@@ -203,7 +283,8 @@ Regra do projeto: `.cursor/rules/database-readonly-tools.mdc`.
 | `ENOENT package.json` | `cd` para `...\taskflow` |
 | Postgres não sobe | `docker compose logs postgres` — porta 5432 ocupada? |
 | API sobe mas dashboard quebra | Rodar `npm run db:push` |
-| CORS no browser | Conferir `CORS_ORIGIN` e `NEXT_PUBLIC_API_URL` |
+| CORS no browser | Usar a URL central e conferir `PUBLIC_APP_URL` |
+| Outro computador abre dados diferentes | Não usar `localhost`; acessar o IP do servidor |
 | Login ok, depois 401 | Access expirou (15m) — logar de novo |
 
 ---
@@ -211,5 +292,6 @@ Regra do projeto: `.cursor/rules/database-readonly-tools.mdc`.
 ## Documentação relacionada
 
 - [DOCUMENTACAO_ANALISTA.md](DOCUMENTACAO_ANALISTA.md) — visão técnica completa
+- [MIGRACAO_DADOS_FELIPE.md](MIGRACAO_DADOS_FELIPE.md) — transferência para o banco central
 - [Atividades_Recorrentes/CHECKLIST_RECORRENTES.md](Atividades_Recorrentes/CHECKLIST_RECORRENTES.md)
 - [README.md](../README.md)

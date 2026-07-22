@@ -3,15 +3,102 @@ services:
     image: postgres:16-alpine
     container_name: taskflow-postgres
     restart: unless-stopped
+    # Host 5432 is often used by other stacks (e.g. Protheus). API uses the
+    # internal Docker network; localhost tooling can reach Postgres on 5433.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5433:5432"
     environment:
       POSTGRES_USER: taskflow
-      POSTGRES_PASSWORD: taskflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-taskflow}
       POSTGRES_DB: taskflow
     volumes:
       - taskflow_pg_data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskflow -d taskflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - backend
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    container_name: taskflow-api
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://taskflow:${POSTGRES_PASSWORD:-taskflow}@postgres:5432/taskflow?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET must be set}
+      JWT_ACCESS_EXPIRES: ${JWT_ACCESS_EXPIRES:-15m}
+      JWT_REFRESH_EXPIRES: ${JWT_REFRESH_EXPIRES:-7d}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-rneves@beautyservices.com.br}
+      API_PORT: 3001
+      CORS_ORIGIN: ${PUBLIC_APP_URL:-http://localhost:3000}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-TaskFlow <taskflow@example.com>}
+      REPORT_MAX_DAYS: ${REPORT_MAX_DAYS:-366}
+      REPORT_MAX_TASKS: ${REPORT_MAX_TASKS:-1000}
+      REPORT_MAX_RECIPIENTS: ${REPORT_MAX_RECIPIENTS:-50}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/api/v1/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - backend
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        INTERNAL_API_URL: http://api:3001
+    container_name: taskflow-web
+    restart: unless-stopped
+    init: true
+    # Prefer 3000 when free; 3080 avoids collision with other local apps.
+    ports:
+      - "0.0.0.0:3080:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - backend
 
 volumes:
   taskflow_pg_data:
+
+networks:
+  backend:
+    driver: bridge

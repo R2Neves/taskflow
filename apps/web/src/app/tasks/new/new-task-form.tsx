@@ -3,8 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
+import { API_BASE } from "@/lib/api";
 
 function buildSlots() {
   const slots: string[] = [];
@@ -173,7 +172,7 @@ export function NewTaskForm() {
 }
 
 function createTask(accessToken: string, payload: Record<string, unknown>) {
-  return fetch(`${API}/tasks`, {
+  return fetch(`${API_BASE}/tasks`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,

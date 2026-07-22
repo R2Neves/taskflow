@@ -9,7 +9,7 @@ export function BrandLogo({
 }) {
   return (
     <Image
-      src="/taskflow-logo.png"
+      src="/taskflow-logo-v2.png"
       alt="TaskFlow"
       width={681}
       height={342}

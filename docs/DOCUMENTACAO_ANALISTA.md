@@ -150,7 +150,7 @@ Probe: `npm run db:assert-readonly`.
 
 ## 6. APIs REST
 
-Base: `http://localhost:3001/api/v1`
+Base no navegador: `/api/v1` (proxy da Web para a API interna).
 
 ### Health / Auth / Users
 
@@ -226,7 +226,7 @@ Navegação autenticada: sidebar em `apps/web/src/components/app-shell.tsx`.
 ```powershell
 cd C:\Projetos_Em_Geral\taskflow
 cp .env.example .env
-docker compose up -d
+docker compose up -d postgres
 npm install
 npm run db:generate
 npm run db:push
@@ -244,7 +244,7 @@ Acessos:
 | URL | Uso |
 |-----|-----|
 | http://localhost:3000 | Frontend |
-| http://localhost:3001/api/v1/health | API |
+| http://localhost:3000/api/v1/health | API via proxy |
 
 Guia completo: [DEPLOY.md](DEPLOY.md).
 
@@ -264,8 +264,8 @@ Arquivo: `.env.example` → copiar para `.env`
 | `JWT_REFRESH_EXPIRES` | `7d` | TTL refresh |
 | `API_PORT` | `3001` | Porta Nest |
 | `CORS_ORIGIN` | `http://localhost:3000` | CORS |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:3001/api/v1` | Base URL no browser |
-| `NEXT_PUBLIC_WS_URL` | `http://localhost:3001` | Reservado para WS |
+| `PUBLIC_APP_URL` | `http://IP_DO_SERVIDOR:3080` | URL compartilhada na LAN |
+| `INTERNAL_API_URL` | `http://localhost:3001` | Destino server-side do proxy |
 
 ---
 

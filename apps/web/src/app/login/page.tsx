@@ -4,8 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
+import { API_BASE } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,7 +18,7 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/auth/login`, {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -46,9 +45,9 @@ export default function LoginPage() {
         className="self-center"
         aria-label="TaskFlow — início"
       >
-        <BrandLogo className="h-64 w-80" priority />
+        <BrandLogo className="h-auto w-72" priority />
       </Link>
-      <h1 className="-mt-4 text-center text-xl font-semibold">Entrar</h1>
+      <h1 className="mt-6 text-center text-xl font-semibold">Entrar</h1>
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <label className="block text-sm">
           <span className="mb-1 block text-brand-700">E-mail</span>

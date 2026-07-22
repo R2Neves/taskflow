@@ -129,7 +129,7 @@ export function AppSidebar({
             className="block"
             aria-label="TaskFlow — início"
           >
-            <BrandLogo className="h-28 w-full" priority />
+            <BrandLogo className="h-auto w-full" priority />
           </Link>
           <p className="mt-2 text-xs text-slate-500">
             Gestão de atividades e processos
@@ -248,7 +248,7 @@ export function AppShell({
                   className="md:hidden"
                   aria-label="TaskFlow — início"
                 >
-                  <BrandLogo className="h-10 w-28" />
+                  <BrandLogo className="h-auto w-28" />
                 </Link>
               )}
             </div>

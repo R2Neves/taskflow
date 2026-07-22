@@ -1,4 +1,4 @@
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1";
 
 export function getAccessToken() {
   if (typeof window === "undefined") return null;
@@ -33,7 +33,7 @@ export async function apiFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${API}${path}`, { ...options, headers });
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (response.status === 401) {
     throw new Error("UNAUTHORIZED");
   }
@@ -56,7 +56,7 @@ export async function apiFetch<T>(
 
 export async function apiDownload(path: string) {
   const token = getAccessToken();
-  const response = await fetch(`${API}${path}`, {
+  const response = await fetch(`${API_BASE}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   if (response.status === 401) throw new Error("UNAUTHORIZED");

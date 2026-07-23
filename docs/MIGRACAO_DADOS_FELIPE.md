@@ -21,14 +21,20 @@ archive ou SQL text.
 ## 2. Janela de migração
 
 1. Avise os usuários e interrompa o uso do TaskFlow.
-2. Guarde um backup do banco central atual.
-3. O responsável humano pela infraestrutura restaura o arquivo do Felipe no
-   banco `taskflow`.
-4. Não recrie, edite ou remapeie IDs manualmente.
-5. Reinicie a pilha central.
+2. Guarde um backup do banco central atual em `backups/`.
+3. O responsável humano restaura o arquivo do Felipe com autorização explícita:
 
-Por política do projeto, o agente Cursor não executa restauração, limpeza,
-alteração de schema nem qualquer outra escrita direta no banco.
+```powershell
+.\scripts\lan\restore-felipe-backup.ps1 `
+  -Path "C:\Users\rneves\Downloads\taskflow-20260722-194648.sql" `
+  -IAuthorizeRestore
+```
+
+4. Não recrie, edite ou remapeie IDs manualmente.
+5. O script reinicia API/Web e reaplica o role readonly.
+
+Por política do projeto, o agente Cursor não executa restauração sem
+autorização escrita explícita do operador.
 
 ## 3. Validação somente leitura
 

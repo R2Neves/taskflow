@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getAccessClaims } from "@/lib/api";
 import { BrandLogo } from "@/components/brand-logo";
+import { OverdueAlert } from "@/components/overdue-alert";
 
 type NavItem = {
   href: string;
@@ -42,6 +43,11 @@ const SECTIONS: NavSection[] = [
   {
     title: "Atividades",
     items: [
+      {
+        href: "/checklist",
+        label: "Checklist",
+        description: "Backlog para agendar no dia ou na equipe",
+      },
       {
         href: "/tasks/new",
         label: "Nova atividade",
@@ -216,6 +222,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-transparent">
+      <OverdueAlert />
       <AppSidebar open={open} onClose={() => setOpen(false)} />
 
       <div className="flex min-w-0 flex-1 flex-col">

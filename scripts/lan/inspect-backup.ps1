@@ -24,10 +24,13 @@ if ($signature -eq "PGDMP") {
     postgres:16-alpine `
     pg_restore --list "/backup/$($file.Name)"
 } else {
-  $firstLine = Get-Content -Path $file.FullName -TotalCount 1
-  if ($firstLine -match "PostgreSQL database dump") {
+  $sample = Get-Content -Path $file.FullName -TotalCount 20 | Out-String
+  if ($sample -match "PostgreSQL database dump" -or $sample -match 'COPY public\.') {
     Write-Host "Formato: PostgreSQL SQL text"
+    if ($sample -match "\\restrict") {
+      Write-Host "Aviso: dump contem \\restrict (pg_dump 16+). Remova essa linha antes de restaurar."
+    }
   } else {
-    throw "O arquivo não foi reconhecido como backup PostgreSQL."
+    throw "O arquivo nao foi reconhecido como backup PostgreSQL."
   }
 }

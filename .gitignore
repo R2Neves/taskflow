@@ -13,3 +13,4 @@ apps/api/prisma/*.db
 apps/api/prisma/*.db-journal
 apps/api/.env
 apps/web/.env.local
+backups/

@@ -1,4 +1,4 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1";
+export const API_BASE = "/api/v1";
 
 export function getAccessToken() {
   if (typeof window === "undefined") return null;
@@ -96,6 +96,7 @@ export type TaskItem = {
   actualStartAt?: string | null;
   actualEndAt?: string | null;
   actualDurationMinutes?: number | null;
+  timerStartedAt?: string | null;
   priority: TaskPriority;
   status: string;
   derivedStatus: string;
@@ -116,6 +117,27 @@ export type TeamItem = {
     user: { id: string; fullName: string; email: string };
   }>;
   _count?: { tasks: number };
+};
+
+export type ChecklistItem = {
+  id: string;
+  title: string;
+  notes?: string | null;
+  scope: "PERSONAL" | "TEAM";
+  teamId?: string | null;
+  done: boolean;
+  sortOrder: number;
+  convertedTaskId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  team: { id: string; name: string } | null;
+  convertedTask: {
+    id: string;
+    title: string;
+    date: string;
+    startAt: string;
+    endAt: string;
+  } | null;
 };
 
 export const PRIORITY_COLORS: Record<TaskPriority, string> = {

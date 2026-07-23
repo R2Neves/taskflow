@@ -32,7 +32,7 @@ export class AuthService {
       throw new ConflictException("E-mail já cadastrado");
     }
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const email = dto.email.toLowerCase();
+    const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.create({
       data: {
         fullName: dto.fullName,

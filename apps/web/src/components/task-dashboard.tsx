@@ -48,46 +48,72 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
       router.replace("/login");
       return;
     }
-
-    Promise.all([
-      apiFetch<Profile>("/users/me"),
-      apiFetch<Task[]>("/tasks"),
-      mode === "team" ? apiFetch<TeamItem[]>("/teams") : Promise.resolve([]),
-    ])
-      .then(([user, availableTasks, availableTeams]) => {
-        setProfile(user);
-        setTasks(availableTasks);
-        setTeams(availableTeams);
-        setSelectedTeamId((current) => current || availableTeams[0]?.id || "");
-      })
-      .catch((reason: unknown) => {
-        const message =
-          reason instanceof Error ? reason.message : "Falha ao carregar dados";
-        if (message === "UNAUTHORIZED") {
-          localStorage.removeItem("tf_access");
-          router.replace("/login");
-          return;
-        }
-        setError(message);
-      })
-      .finally(() => setLoading(false));
+    void reload();
   }, [mode, router]);
+
+  async function reload() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [user, availableTasks, availableTeams] = await Promise.all([
+        apiFetch<Profile>("/users/me"),
+        apiFetch<Task[]>("/tasks"),
+        mode === "team" ? apiFetch<TeamItem[]>("/teams") : Promise.resolve([]),
+      ]);
+      setProfile(user);
+      setTasks(availableTasks);
+      setTeams(availableTeams);
+      setSelectedTeamId((current) => current || availableTeams[0]?.id || "");
+    } catch (reason: unknown) {
+      const message =
+        reason instanceof Error ? reason.message : "Falha ao carregar dados";
+      if (message === "UNAUTHORIZED") {
+        localStorage.removeItem("tf_access");
+        router.replace("/login");
+        return;
+      }
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const visibleTasks = useMemo(() => {
     if (!profile) return [];
-    return tasks.filter((task) =>
-      mode === "personal"
-        ? task.assignee.id === profile.id
-        : Boolean(task.team) &&
-          (!selectedTeamId || task.team?.id === selectedTeamId),
-    );
+    return tasks.filter((task) => {
+      if (mode === "personal") {
+        // Individuais: atribuídas a mim e sem equipe vinculada
+        return task.assignee.id === profile.id && !task.team;
+      }
+      // Equipe: somente atividades com equipe (filtradas pela equipe em foco)
+      return (
+        Boolean(task.team) &&
+        (!selectedTeamId || task.team?.id === selectedTeamId)
+      );
+    });
   }, [mode, profile, selectedTeamId, tasks]);
 
   const todayTasks = useMemo(
     () =>
       visibleTasks
-        .filter((task) => isToday(task.startAt))
+        .filter((task) => isTodayInSaoPaulo(task.startAt))
         .sort((a, b) => urgencyScore(b) - urgencyScore(a)),
+    [visibleTasks],
+  );
+  const upcomingTasks = useMemo(
+    () =>
+      visibleTasks
+        .filter(
+          (task) =>
+            !TERMINAL_STATUSES.has(task.status) &&
+            !isTodayInSaoPaulo(task.startAt) &&
+            task.derivedStatus !== "OVERDUE" &&
+            new Date(task.startAt).getTime() > Date.now(),
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+        ),
     [visibleTasks],
   );
   const completed = todayTasks.filter((task) => task.status === "COMPLETED");
@@ -105,10 +131,10 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
     ),
   ].sort((a, b) => urgencyScore(b) - urgencyScore(a));
   const morning = todayTasks.filter(
-    (task) => new Date(task.startAt).getHours() < 12,
+    (task) => hourInSaoPaulo(task.startAt) < 12,
   );
   const afternoon = todayTasks.filter(
-    (task) => new Date(task.startAt).getHours() >= 12,
+    (task) => hourInSaoPaulo(task.startAt) >= 12,
   );
 
   const completedMinutes = sumMinutes(completed);
@@ -174,8 +200,8 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
       title={isPersonal ? "Minhas atividades" : "Atividades da equipe"}
       subtitle={
         isPersonal
-          ? `Olá, ${profile?.fullName}. Estas são as suas atividades.`
-          : "Visão geral das atividades das suas equipes."
+          ? `Olá, ${profile?.fullName}. Atividades individuais atribuídas a você.`
+          : "Atividades vinculadas às suas equipes."
       }
       actions={
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -250,12 +276,39 @@ export function TaskDashboard({ mode }: { mode: ViewMode }) {
         <Kpi value={formatMinutes(pendingMinutes)} label="Tempo pendente" />
       </section>
 
-      <UrgentQueue tasks={urgent} mode={mode} />
+      {visibleTasks.length === 0 && (
+        <div className="mb-6 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+          {isPersonal
+            ? "Nenhuma atividade individual encontrada. Itens com equipe aparecem em Equipe; use Checklist ou Nova atividade para criar."
+            : teams.length === 0
+              ? "Você ainda não participa de nenhuma equipe."
+              : "Nenhuma atividade de equipe neste filtro. Ao agendar, escolha “Atividade da equipe” no Checklist ou vincule a equipe na criação."}
+        </div>
+      )}
+
+      <UrgentQueue
+        tasks={urgent}
+        mode={mode}
+        onChanged={async () => {
+          const availableTasks = await apiFetch<Task[]>("/tasks");
+          setTasks(availableTasks);
+        }}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <AgendaColumn title="Manhã" tasks={morning} mode={mode} />
         <AgendaColumn title="Tarde" tasks={afternoon} mode={mode} />
       </div>
+
+      {upcomingTasks.length > 0 && (
+        <section className="mt-6">
+          <AgendaColumn
+            title="Próximos dias"
+            tasks={upcomingTasks}
+            mode={mode}
+          />
+        </section>
+      )}
 
       <section className="mt-8 grid gap-4 md:grid-cols-3">
         <TaskList title="Pendentes" tasks={pending} mode={mode} />
@@ -292,7 +345,44 @@ function Kpi({
   );
 }
 
-function UrgentQueue({ tasks, mode }: { tasks: Task[]; mode: ViewMode }) {
+function UrgentQueue({
+  tasks,
+  mode,
+  onChanged,
+}: {
+  tasks: Task[];
+  mode: ViewMode;
+  onChanged: () => Promise<void>;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const hasRunning = tasks.some((task) => task.status === "IN_PROGRESS");
+    if (!hasRunning) return;
+    const timer = window.setInterval(() => setTick((value) => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [tasks]);
+
+  async function setTimer(task: Task, status: "IN_PROGRESS" | "PAUSED") {
+    setBusyId(task.id);
+    setActionError(null);
+    try {
+      await apiFetch(`/tasks/${task.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      await onChanged();
+    } catch (reason) {
+      setActionError(
+        reason instanceof Error ? reason.message : "Falha ao atualizar o timer",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <section className="mb-7 overflow-hidden rounded-2xl border border-rose-400/25 bg-gradient-to-br from-rose-500/10 via-slate-900/90 to-slate-950">
       <div className="flex items-center justify-between border-b border-rose-400/15 px-5 py-4">
@@ -308,38 +398,100 @@ function UrgentQueue({ tasks, mode }: { tasks: Task[]; mode: ViewMode }) {
           {tasks.length}
         </span>
       </div>
+      {actionError && (
+        <p className="border-b border-rose-400/15 px-5 py-3 text-sm text-rose-200">
+          {actionError}
+        </p>
+      )}
       {tasks.length === 0 ? (
         <p className="px-5 py-6 text-sm text-slate-400">
           Tudo sob controle: nenhuma demanda urgente para hoje.
         </p>
       ) : (
         <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-          {tasks.map((task) => (
-            <Link
-              key={task.id}
-              href={`/tasks/${task.id}`}
-              className="group rounded-xl border border-slate-700 bg-slate-950/75 p-4 transition hover:-translate-y-0.5 hover:border-rose-400/50 hover:shadow-xl hover:shadow-rose-950/20"
-            >
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <StatusBadge task={task} />
-                <span className="text-xs tabular-nums text-slate-400">
-                  {formatTime(task.startAt)}–{formatTime(task.endAt)}
-                </span>
+          {tasks.map((task) => {
+            const running = task.status === "IN_PROGRESS";
+            const terminal = TERMINAL_STATUSES.has(task.status);
+            return (
+              <div
+                key={task.id}
+                className="rounded-xl border border-slate-700 bg-slate-950/75 p-4 transition hover:border-rose-400/50 hover:shadow-xl hover:shadow-rose-950/20"
+              >
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <StatusBadge task={task} />
+                  <span className="text-xs tabular-nums text-slate-400">
+                    {formatTime(task.startAt)}–{formatTime(task.endAt)}
+                  </span>
+                </div>
+                <Link
+                  href={`/tasks/${task.id}`}
+                  className="line-clamp-2 font-semibold text-slate-100 hover:text-white"
+                >
+                  {task.title}
+                </Link>
+                <p className="mt-2 truncate text-xs text-slate-400">
+                  {mode === "team"
+                    ? `${task.assignee.fullName} · ${task.team?.name ?? "Equipe"}`
+                    : task.team?.name ?? "Atividade pessoal"}
+                </p>
+
+                <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-800 pt-3">
+                  <p className="text-xs tabular-nums text-slate-300">
+                    Tempo:{" "}
+                    <span className="font-semibold text-teal-300">
+                      {formatElapsed(workedMs(task))}
+                    </span>
+                    {running ? " · em andamento" : ""}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={busyId !== null || terminal || running}
+                      onClick={() => void setTimer(task, "IN_PROGRESS")}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-teal-500 text-sm font-bold text-slate-950 hover:bg-teal-400 disabled:opacity-40"
+                      aria-label="Iniciar demanda"
+                      title="Play"
+                    >
+                      ▶
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyId !== null || terminal || !running}
+                      onClick={() => void setTimer(task, "PAUSED")}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-rose-400/40 bg-rose-400/15 text-sm font-bold text-rose-200 hover:bg-rose-400/25 disabled:opacity-40"
+                      aria-label="Parar demanda"
+                      title="Stop"
+                    >
+                      ■
+                    </button>
+                  </div>
+                </div>
               </div>
-              <p className="line-clamp-2 font-semibold text-slate-100 group-hover:text-white">
-                {task.title}
-              </p>
-              <p className="mt-2 truncate text-xs text-slate-400">
-                {mode === "team"
-                  ? `${task.assignee.fullName} · ${task.team?.name ?? "Equipe"}`
-                  : task.team?.name ?? "Atividade pessoal"}
-              </p>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
   );
+}
+
+function workedMs(task: Task) {
+  const closedMs = (task.actualDurationMinutes ?? 0) * 60_000;
+  if (task.status === "IN_PROGRESS" && task.timerStartedAt) {
+    return closedMs + Math.max(0, Date.now() - new Date(task.timerStartedAt).getTime());
+  }
+  return closedMs;
+}
+
+function formatElapsed(totalMs: number) {
+  const totalSeconds = Math.max(0, Math.floor(totalMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function AgendaColumn({
@@ -489,14 +641,26 @@ function PageMessage({
   );
 }
 
-function isToday(value: string) {
-  const date = new Date(value);
-  const today = new Date();
-  return (
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
-  );
+function dateKeyInSaoPaulo(value: string | Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+}
+
+function isTodayInSaoPaulo(value: string) {
+  return dateKeyInSaoPaulo(value) === dateKeyInSaoPaulo(new Date());
+}
+
+function hourInSaoPaulo(value: string) {
+  const hour = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
+  return Number(hour);
 }
 
 function urgencyScore(task: Task) {
@@ -509,6 +673,7 @@ function urgencyScore(task: Task) {
 
 function formatTime(value: string) {
   return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));

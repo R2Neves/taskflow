@@ -1,5 +1,12 @@
 import { SystemRole } from "@prisma/client";
-import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from "class-validator";
 
 export class UpdateAdminUserDto {
   @IsOptional()
@@ -9,6 +16,17 @@ export class UpdateAdminUserDto {
   fullName?: string;
 
   @IsOptional()
+  @IsEmail()
+  @MaxLength(160)
+  email?: string;
+
+  @IsOptional()
   @IsEnum(SystemRole)
   systemRole?: SystemRole;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  password?: string;
 }

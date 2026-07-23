@@ -19,15 +19,18 @@ type Account = {
   };
 };
 
+type Draft = Account & { password: string };
+
 const BOOTSTRAP_ADMIN = "rneves@beautyservices.com.br";
 
 export default function AdminPage() {
   const router = useRouter();
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const claims = getAccessClaims();
@@ -39,15 +42,17 @@ export default function AdminPage() {
       router.replace("/dashboard");
       return;
     }
-    loadAccounts();
+    void loadAccounts();
   }, [router]);
 
   async function loadAccounts() {
     setLoading(true);
+    setError(null);
     try {
-      setAccounts(await apiFetch<Account[]>("/users/admin/accounts"));
+      const accounts = await apiFetch<Account[]>("/users/admin/accounts");
+      setDrafts(accounts.map((account) => ({ ...account, password: "" })));
     } catch (reason) {
-      setFeedback(
+      setError(
         reason instanceof Error ? reason.message : "Falha ao carregar acessos",
       );
     } finally {
@@ -55,26 +60,39 @@ export default function AdminPage() {
     }
   }
 
-  async function save(account: Account) {
-    setSavingId(account.id);
+  async function save(draft: Draft) {
+    setSavingId(draft.id);
     setFeedback(null);
+    setError(null);
     try {
+      const payload: Record<string, string> = {
+        fullName: draft.fullName.trim(),
+        email: draft.email.trim().toLowerCase(),
+        systemRole: draft.systemRole,
+      };
+      if (draft.password.trim()) {
+        payload.password = draft.password.trim();
+      }
+
       const updated = await apiFetch<Account>(
-        `/users/admin/accounts/${account.id}`,
+        `/users/admin/accounts/${draft.id}`,
         {
           method: "PATCH",
-          body: JSON.stringify({
-            fullName: account.fullName,
-            systemRole: account.systemRole,
-          }),
+          body: JSON.stringify(payload),
         },
       );
-      setAccounts((current) =>
-        current.map((item) => (item.id === updated.id ? updated : item)),
+      setDrafts((current) =>
+        current.map((item) =>
+          item.id === updated.id ? { ...updated, password: "" } : item,
+        ),
       );
-      setFeedback(`Acesso de ${updated.fullName} atualizado.`);
-    } catch (reason) {
       setFeedback(
+        draft.password.trim()
+          ? `Acesso de ${updated.fullName} atualizado e senha redefinida.`
+          : `Acesso de ${updated.fullName} atualizado.`,
+      );
+    } catch (reason) {
+      setError(
         reason instanceof Error ? reason.message : "Falha ao atualizar acesso",
       );
     } finally {
@@ -82,29 +100,45 @@ export default function AdminPage() {
     }
   }
 
+  function patchDraft(id: string, patch: Partial<Draft>) {
+    setDrafts((current) =>
+      current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    );
+  }
+
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return accounts;
-    return accounts.filter(
+    if (!term) return drafts;
+    return drafts.filter(
       (account) =>
         account.fullName.toLowerCase().includes(term) ||
         account.email.toLowerCase().includes(term),
     );
-  }, [accounts, search]);
+  }, [drafts, search]);
 
-  const admins = accounts.filter(
+  const admins = drafts.filter(
     (account) => account.systemRole === "ADMIN",
   ).length;
 
   return (
     <AppShell
       title="Painel administrador"
-      subtitle="Gerencie os acessos e as permissões da plataforma."
+      subtitle="Todo cadastro aparece aqui. Com a conta ADMIN você visualiza e altera nome, e-mail, senha e permissão."
+      actions={
+        <button
+          type="button"
+          onClick={() => void loadAccounts()}
+          disabled={loading || savingId !== null}
+          className="rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-teal-400/40 disabled:opacity-50"
+        >
+          Atualizar lista
+        </button>
+      }
     >
       <section className="mb-6 grid gap-3 sm:grid-cols-3">
-        <Metric label="Acessos cadastrados" value={accounts.length} />
+        <Metric label="Acessos cadastrados" value={drafts.length} />
         <Metric label="Administradores" value={admins} accent />
-        <Metric label="Usuários padrão" value={accounts.length - admins} />
+        <Metric label="Usuários padrão" value={drafts.length - admins} />
       </section>
 
       <section className="mb-5 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
@@ -127,10 +161,21 @@ export default function AdminPage() {
           {feedback}
         </p>
       )}
+      {error && (
+        <p className="mb-5 rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+          {error}
+        </p>
+      )}
 
       {loading ? (
         <p className="py-12 text-center text-slate-400">
           Carregando acessos…
+        </p>
+      ) : filtered.length === 0 ? (
+        <p className="rounded-2xl border border-slate-700 bg-slate-900/80 px-5 py-10 text-center text-sm text-slate-400">
+          {drafts.length === 0
+            ? "Nenhum acesso cadastrado ainda."
+            : "Nenhum acesso corresponde à busca."}
         </p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -144,7 +189,10 @@ export default function AdminPage() {
               >
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-100">
+                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                      Acesso
+                    </p>
+                    <p className="mt-1 truncate text-sm font-medium text-slate-100">
                       {account.email}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
@@ -171,15 +219,23 @@ export default function AdminPage() {
                     <input
                       value={account.fullName}
                       onChange={(event) =>
-                        setAccounts((current) =>
-                          current.map((item) =>
-                            item.id === account.id
-                              ? { ...item, fullName: event.target.value }
-                              : item,
-                          ),
-                        )
+                        patchDraft(account.id, {
+                          fullName: event.target.value,
+                        })
                       }
                       className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="mb-1 block text-slate-400">E-mail</span>
+                    <input
+                      type="email"
+                      value={account.email}
+                      disabled={protectedAdmin}
+                      onChange={(event) =>
+                        patchDraft(account.id, { email: event.target.value })
+                      }
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
                     />
                   </label>
                   <label className="block text-sm">
@@ -190,24 +246,32 @@ export default function AdminPage() {
                       value={account.systemRole}
                       disabled={protectedAdmin}
                       onChange={(event) =>
-                        setAccounts((current) =>
-                          current.map((item) =>
-                            item.id === account.id
-                              ? {
-                                  ...item,
-                                  systemRole: event.target.value as
-                                    | "ADMIN"
-                                    | "USER",
-                                }
-                              : item,
-                          ),
-                        )
+                        patchDraft(account.id, {
+                          systemRole: event.target.value as "ADMIN" | "USER",
+                        })
                       }
                       className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 disabled:opacity-60"
                     >
                       <option value="USER">Usuário padrão</option>
                       <option value="ADMIN">Administrador</option>
                     </select>
+                  </label>
+                  <label className="block text-sm">
+                    <span className="mb-1 block text-slate-400">
+                      Nova senha (opcional)
+                    </span>
+                    <input
+                      type="password"
+                      value={account.password}
+                      minLength={8}
+                      placeholder="Deixe em branco para manter"
+                      onChange={(event) =>
+                        patchDraft(account.id, {
+                          password: event.target.value,
+                        })
+                      }
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2"
+                    />
                   </label>
                 </div>
 
@@ -218,7 +282,7 @@ export default function AdminPage() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => save(account)}
+                    onClick={() => void save(account)}
                     disabled={savingId !== null}
                     className="rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-50"
                   >

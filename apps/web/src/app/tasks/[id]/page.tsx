@@ -177,8 +177,8 @@ export default function TaskDetailPage() {
       const payload = {
         title,
         date,
-        startAt: new Date(`${date}T${start}:00`).toISOString(),
-        endAt: new Date(`${date}T${end}:00`).toISOString(),
+        startAt: new Date(`${date}T${start}:00-03:00`).toISOString(),
+        endAt: new Date(`${date}T${end}:00-03:00`).toISOString(),
         priority,
         status,
         notes: notes || undefined,

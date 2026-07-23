@@ -43,6 +43,11 @@ enum ParticipantRole {
   PARTICIPANT
 }
 
+enum ChecklistScope {
+  PERSONAL
+  TEAM
+}
+
 model User {
   id           String   @id @default(uuid())
   fullName     String
@@ -64,6 +69,7 @@ model User {
   auditLogs           AuditLog[]
   notifications       Notification[]
   recurringActivities RecurringActivity[]
+  checklistItems      ChecklistItem[]
 }
 
 model RefreshToken {
@@ -98,6 +104,7 @@ model Team {
   members             TeamMember[]
   tasks               Task[]
   recurringActivities RecurringActivity[]
+  checklistItems      ChecklistItem[]
 }
 
 model TeamMember {
@@ -139,12 +146,34 @@ model Task {
   recurringActivity RecurringActivity? @relation(fields: [recurringActivityId], references: [id], onDelete: SetNull)
   participants      TaskParticipant[]
   comments          Comment[]
+  checklistSource   ChecklistItem?
 
   @@index([assigneeId, date])
   @@index([ownerId, date])
   @@index([teamId])
   @@index([startAt, endAt])
   @@index([recurringActivityId, date])
+}
+
+model ChecklistItem {
+  id              String         @id @default(uuid())
+  ownerId         String
+  title           String
+  notes           String?
+  scope           ChecklistScope @default(PERSONAL)
+  teamId          String?
+  done            Boolean        @default(false)
+  sortOrder       Int            @default(0)
+  convertedTaskId String?        @unique
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  owner         User  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  team          Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  convertedTask Task? @relation(fields: [convertedTaskId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId, done])
+  @@index([teamId])
 }
 
 model RecurringActivity {

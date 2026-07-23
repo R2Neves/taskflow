@@ -26,6 +26,10 @@ function todayLocal() {
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 }
 
+function toSaoPauloIso(date: string, time: string) {
+  return new Date(`${date}T${time}:00-03:00`).toISOString();
+}
+
 export function NewTaskForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,11 +53,15 @@ export function NewTaskForm() {
         return;
       }
 
+      if (end <= start) {
+        throw new Error("O horário final deve ser depois do início");
+      }
+
       const payload = {
-        title,
+        title: title.trim(),
         date,
-        startAt: new Date(`${date}T${start}:00`).toISOString(),
-        endAt: new Date(`${date}T${end}:00`).toISOString(),
+        startAt: toSaoPauloIso(date, start),
+        endAt: toSaoPauloIso(date, end),
         priority,
       };
       let response = await createTask(accessToken, payload);
@@ -62,7 +70,10 @@ export function NewTaskForm() {
         const confirmed = window.confirm(
           "Já existe uma atividade nesse horário. Deseja salvar mesmo assim?",
         );
-        if (!confirmed) return;
+        if (!confirmed) {
+          setError("Salvamento cancelado por conflito de horário.");
+          return;
+        }
         const overlapReason = window.prompt(
           "Informe o motivo para manter o conflito:",
         );
@@ -74,6 +85,13 @@ export function NewTaskForm() {
           force: true,
           overlapReason,
         });
+      }
+
+      if (response.status === 401) {
+        localStorage.removeItem("tf_access");
+        localStorage.removeItem("tf_refresh");
+        router.push("/login");
+        return;
       }
 
       if (!response.ok) {

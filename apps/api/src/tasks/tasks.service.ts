@@ -92,7 +92,7 @@ export class TasksService {
       orderBy: [{ startAt: "asc" }, { createdAt: "asc" }],
       include: this.taskRelations,
     });
-    return tasks.map((task) => this.withDerivedStatus(task));
+    return this.withTimingForMany(tasks.map((task) => this.withDerivedStatus(task)));
   }
 
   async findOne(userId: string, id: string) {
@@ -102,8 +102,30 @@ export class TasksService {
 
   async update(userId: string, id: string, dto: UpdateTaskDto) {
     const current = await this.findAccessible(userId, id);
-    if (current.ownerId !== userId) {
-      throw new ForbiddenException("Somente o proprietário pode editar a atividade");
+    const statusOnly =
+      dto.status !== undefined &&
+      dto.title === undefined &&
+      dto.description === undefined &&
+      dto.assigneeId === undefined &&
+      dto.teamId === undefined &&
+      dto.date === undefined &&
+      dto.startAt === undefined &&
+      dto.endAt === undefined &&
+      dto.category === undefined &&
+      dto.priority === undefined &&
+      dto.visibility === undefined &&
+      dto.notes === undefined &&
+      dto.force === undefined &&
+      dto.overlapReason === undefined;
+
+    const canEditFully = current.ownerId === userId;
+    const canControlTimer =
+      current.ownerId === userId || current.assigneeId === userId;
+
+    if (!canEditFully && !(statusOnly && canControlTimer)) {
+      throw new ForbiddenException(
+        "Somente o proprietário pode editar a atividade",
+      );
     }
 
     const assigneeId = dto.assigneeId ?? current.assigneeId;
@@ -111,62 +133,73 @@ export class TasksService {
       dto.startAt ?? current.startAt.toISOString(),
       dto.endAt ?? current.endAt.toISOString(),
     );
-    await this.assertAssigneeExists(assigneeId);
-    const schedulingChanged =
-      dto.assigneeId !== undefined ||
-      dto.startAt !== undefined ||
-      dto.endAt !== undefined;
-    if (schedulingChanged) {
-      await this.assertNoConflict({
-        assigneeId,
-        ...interval,
-        force: dto.force,
-        overlapReason: dto.overlapReason,
-        excludeTaskId: id,
-      });
+    if (!statusOnly) {
+      await this.assertAssigneeExists(assigneeId);
+      const schedulingChanged =
+        dto.assigneeId !== undefined ||
+        dto.startAt !== undefined ||
+        dto.endAt !== undefined;
+      if (schedulingChanged) {
+        await this.assertNoConflict({
+          assigneeId,
+          ...interval,
+          force: dto.force,
+          overlapReason: dto.overlapReason,
+          excludeTaskId: id,
+        });
+      }
     }
 
     const task = await this.prisma.task.update({
       where: { id },
-      data: {
-        title: dto.title?.trim(),
-        description: dto.description,
-        assigneeId: dto.assigneeId,
-        teamId: dto.teamId,
-        date: dto.date ? this.parseDate(dto.date) : undefined,
-        startAt: dto.startAt ? interval.startAt : undefined,
-        endAt: dto.endAt ? interval.endAt : undefined,
-        category: dto.category,
-        priority: dto.priority,
-        status: dto.status,
-        visibility: dto.visibility,
-        notes: dto.notes,
-        forceOverlap: dto.force,
-        overlapReason: dto.force ? dto.overlapReason?.trim() : undefined,
-      },
+      data: statusOnly
+        ? { status: dto.status }
+        : {
+            title: dto.title?.trim(),
+            description: dto.description,
+            assigneeId: dto.assigneeId,
+            teamId: dto.teamId,
+            date: dto.date ? this.parseDate(dto.date) : undefined,
+            startAt: dto.startAt ? interval.startAt : undefined,
+            endAt: dto.endAt ? interval.endAt : undefined,
+            category: dto.category,
+            priority: dto.priority,
+            status: dto.status,
+            visibility: dto.visibility,
+            notes: dto.notes,
+            forceOverlap: dto.force,
+            overlapReason: dto.force ? dto.overlapReason?.trim() : undefined,
+          },
       include: this.taskRelations,
     });
-    if (
-      dto.status !== undefined &&
-      dto.status !== current.status &&
-      (dto.status === TaskStatus.IN_PROGRESS ||
-        dto.status === TaskStatus.COMPLETED)
-    ) {
-      await this.prisma.auditLog.create({
-        data: {
-          entityType: "Task",
-          entityId: id,
-          actorId: userId,
-          action:
-            dto.status === TaskStatus.IN_PROGRESS
-              ? "TASK_STARTED"
-              : "TASK_COMPLETED",
-          before: { status: current.status },
-          after: { status: dto.status },
-        },
-      });
+
+    if (dto.status !== undefined && dto.status !== current.status) {
+      const action =
+        dto.status === TaskStatus.IN_PROGRESS
+          ? "TASK_STARTED"
+          : dto.status === TaskStatus.PAUSED
+            ? "TASK_PAUSED"
+            : dto.status === TaskStatus.COMPLETED
+              ? "TASK_COMPLETED"
+              : null;
+      if (action) {
+        await this.prisma.auditLog.create({
+          data: {
+            entityType: "Task",
+            entityId: id,
+            actorId: userId,
+            action,
+            before: { status: current.status },
+            after: { status: dto.status },
+          },
+        });
+      }
     }
-    return this.withDerivedStatus(task);
+
+    const [enriched] = await this.withTimingForMany([
+      this.withDerivedStatus(task),
+    ]);
+    return enriched;
   }
 
   async remove(userId: string, id: string) {
@@ -254,13 +287,26 @@ export class TasksService {
     if (endAt <= startAt) {
       throw new BadRequestException("endAt deve ser posterior a startAt");
     }
-    const slotMs = 15 * 60 * 1000;
-    if (startAt.getTime() % slotMs !== 0 || endAt.getTime() % slotMs !== 0) {
+    this.assertQuarterHour(startAt, "Início");
+    this.assertQuarterHour(endAt, "Fim");
+    return { startAt, endAt };
+  }
+
+  private assertQuarterHour(value: Date, label: string) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).formatToParts(value);
+    const minute = Number(parts.find((part) => part.type === "minute")?.value);
+    const second = Number(parts.find((part) => part.type === "second")?.value);
+    if (Number.isNaN(minute) || Number.isNaN(second) || second !== 0 || minute % 15 !== 0) {
       throw new BadRequestException(
-        "Início e fim devem respeitar blocos de 15 minutos",
+        `${label} deve respeitar blocos de 15 minutos`,
       );
     }
-    return { startAt, endAt };
   }
 
   private parseDateTime(value: string, field: string) {
@@ -289,6 +335,55 @@ export class TasksService {
     return { ...task, derivedStatus };
   }
 
+  private async withTimingForMany<
+    T extends { id: string; status: TaskStatus; derivedStatus: string },
+  >(tasks: T[]) {
+    if (tasks.length === 0) return tasks;
+    const events = await this.prisma.auditLog.findMany({
+      where: {
+        entityType: "Task",
+        entityId: { in: tasks.map((task) => task.id) },
+        action: { in: ["TASK_STARTED", "TASK_PAUSED", "TASK_COMPLETED"] },
+      },
+      orderBy: { createdAt: "asc" },
+      select: { entityId: true, action: true, createdAt: true },
+    });
+
+    const byTask = new Map<string, Array<{ action: string; createdAt: Date }>>();
+    for (const event of events) {
+      const list = byTask.get(event.entityId) ?? [];
+      list.push({ action: event.action, createdAt: event.createdAt });
+      byTask.set(event.entityId, list);
+    }
+
+    return tasks.map((task) => {
+      const timeline = byTask.get(task.id) ?? [];
+      let workedMs = 0;
+      let openStart: Date | null = null;
+      for (const event of timeline) {
+        if (event.action === "TASK_STARTED") {
+          openStart = event.createdAt;
+        } else if (
+          (event.action === "TASK_PAUSED" ||
+            event.action === "TASK_COMPLETED") &&
+          openStart
+        ) {
+          workedMs += event.createdAt.getTime() - openStart.getTime();
+          openStart = null;
+        }
+      }
+      const timerStartedAt =
+        task.status === TaskStatus.IN_PROGRESS && openStart
+          ? openStart.toISOString()
+          : null;
+      return {
+        ...task,
+        timerStartedAt,
+        actualDurationMinutes: Math.max(0, Math.round(workedMs / 60_000)),
+      };
+    });
+  }
+
   private async withActualTiming<
     T extends {
       id: string;
@@ -298,37 +393,9 @@ export class TasksService {
       updatedAt: Date;
     },
   >(task: T) {
-    const events = await this.prisma.auditLog.findMany({
-      where: {
-        entityType: "Task",
-        entityId: task.id,
-        action: { in: ["TASK_STARTED", "TASK_COMPLETED"] },
-      },
-      orderBy: { createdAt: "desc" },
-      select: { action: true, createdAt: true },
-    });
-    const completion =
-      events.find((event) => event.action === "TASK_COMPLETED")?.createdAt ??
-      (task.status === TaskStatus.COMPLETED ? task.updatedAt : null);
-    const start =
-      events.find(
-        (event) =>
-          event.action === "TASK_STARTED" &&
-          (!completion || event.createdAt <= completion),
-      )?.createdAt ?? (completion ? task.startAt : null);
-    const actualDurationMinutes =
-      start && completion
-        ? Math.max(
-            0,
-            Math.round((completion.getTime() - start.getTime()) / 60_000),
-          )
-        : null;
-
-    return {
-      ...this.withDerivedStatus(task),
-      actualStartAt: start,
-      actualEndAt: completion,
-      actualDurationMinutes,
-    };
+    const [enriched] = await this.withTimingForMany([
+      this.withDerivedStatus(task),
+    ]);
+    return enriched;
   }
 }

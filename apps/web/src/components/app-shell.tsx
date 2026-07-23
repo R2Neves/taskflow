@@ -34,6 +34,11 @@ const SECTIONS: NavSection[] = [
         description: "Atividades compartilhadas",
       },
       {
+        href: "/finished",
+        label: "Finalizadas",
+        description: "Histórico individual e da equipe",
+      },
+      {
         href: "/calendar",
         label: "Calendário",
         description: "Visão diária, semanal e mensal",

@@ -8,6 +8,7 @@ import { TeamsModule } from "./teams/teams.module";
 import { RecurringModule } from "./recurring/recurring.module";
 import { ReportsModule } from "./reports/reports.module";
 import { ChecklistModule } from "./checklist/checklist.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { HealthController } from "./health.controller";
 
 @Module({
@@ -21,6 +22,7 @@ import { HealthController } from "./health.controller";
     RecurringModule,
     ReportsModule,
     ChecklistModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
 })

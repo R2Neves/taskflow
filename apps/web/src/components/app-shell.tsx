@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { getAccessClaims } from "@/lib/api";
 import { BrandLogo } from "@/components/brand-logo";
 import { OverdueAlert } from "@/components/overdue-alert";
+import { TeamInviteBanner } from "@/components/team-invite-banner";
 
 type NavItem = {
   href: string;
@@ -231,6 +232,7 @@ export function AppShell({
       <AppSidebar open={open} onClose={() => setOpen(false)} />
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <TeamInviteBanner />
         <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/75 backdrop-blur-xl">
           <div className="flex items-center gap-3 px-4 py-3 md:px-6">
             <button

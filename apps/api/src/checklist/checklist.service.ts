@@ -45,14 +45,22 @@ export class ChecklistService {
 
   findMine(userId: string) {
     return this.prisma.checklistItem.findMany({
-      where: { ownerId: userId },
+      where: {
+        OR: [
+          { ownerId: userId },
+          {
+            scope: ChecklistScope.TEAM,
+            team: { members: { some: { userId } } },
+          },
+        ],
+      },
       orderBy: [{ done: "asc" }, { sortOrder: "asc" }, { createdAt: "desc" }],
       include: this.include,
     });
   }
 
   async update(userId: string, id: string, dto: UpdateChecklistDto) {
-    await this.requireOwned(userId, id);
+    await this.requireAccessible(userId, id);
     const scope = dto.scope;
     let teamId = dto.teamId;
     if (scope === ChecklistScope.PERSONAL) {
@@ -76,13 +84,13 @@ export class ChecklistService {
   }
 
   async remove(userId: string, id: string) {
-    await this.requireOwned(userId, id);
+    await this.requireAccessible(userId, id);
     await this.prisma.checklistItem.delete({ where: { id } });
     return { ok: true };
   }
 
   async schedule(userId: string, id: string, dto: ScheduleChecklistDto) {
-    const item = await this.requireOwned(userId, id);
+    const item = await this.requireAccessible(userId, id);
     if (item.convertedTaskId) {
       throw new BadRequestException("Este item já foi convertido em atividade");
     }
@@ -127,12 +135,25 @@ export class ChecklistService {
     return { item: updated, task };
   }
 
-  private async requireOwned(userId: string, id: string) {
+  private async requireAccessible(userId: string, id: string) {
     const item = await this.prisma.checklistItem.findFirst({
-      where: { id, ownerId: userId },
+      where: {
+        id,
+        OR: [
+          { ownerId: userId },
+          {
+            scope: ChecklistScope.TEAM,
+            team: { members: { some: { userId } } },
+          },
+        ],
+      },
     });
     if (!item) throw new NotFoundException("Item do checklist não encontrado");
     return item;
+  }
+
+  private async requireOwned(userId: string, id: string) {
+    return this.requireAccessible(userId, id);
   }
 
   private async assertTeamAccess(userId: string, teamId?: string | null) {

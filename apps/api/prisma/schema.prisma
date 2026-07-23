@@ -48,6 +48,13 @@ enum ChecklistScope {
   TEAM
 }
 
+enum TeamInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
 model User {
   id           String   @id @default(uuid())
   fullName     String
@@ -70,6 +77,8 @@ model User {
   notifications       Notification[]
   recurringActivities RecurringActivity[]
   checklistItems      ChecklistItem[]
+  sentTeamInvites     TeamInvite[]         @relation("TeamInviteSender")
+  receivedTeamInvites TeamInvite[]         @relation("TeamInviteRecipient")
 }
 
 model RefreshToken {
@@ -102,6 +111,7 @@ model Team {
   updatedAt   DateTime @updatedAt
   createdBy   User     @relation("TeamCreator", fields: [createdById], references: [id])
   members             TeamMember[]
+  invites             TeamInvite[]
   tasks               Task[]
   recurringActivities RecurringActivity[]
   checklistItems      ChecklistItem[]
@@ -117,6 +127,26 @@ model TeamMember {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, userId])
+}
+
+model TeamInvite {
+  id            String           @id @default(uuid())
+  teamId        String
+  email         String
+  invitedUserId String?
+  invitedById   String
+  status        TeamInviteStatus @default(PENDING)
+  respondedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  team        Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitedBy   User  @relation("TeamInviteSender", fields: [invitedById], references: [id], onDelete: Cascade)
+  invitedUser User? @relation("TeamInviteRecipient", fields: [invitedUserId], references: [id], onDelete: SetNull)
+
+  @@index([email, status])
+  @@index([invitedUserId, status])
+  @@index([teamId, status])
 }
 
 model Task {

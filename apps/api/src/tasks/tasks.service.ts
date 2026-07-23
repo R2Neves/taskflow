@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma, TaskStatus } from "@prisma/client";
+import { Prisma, TaskStatus, Visibility } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateTaskDto, UpdateTaskDto } from "./dto/task.dto";
 
@@ -29,20 +29,28 @@ export class TasksService {
       overlapReason: dto.overlapReason,
     });
 
+    let teamId = dto.teamId ?? null;
+    if (teamId) {
+      await this.assertTeamMember(userId, teamId);
+    }
+
+    const visibility =
+      dto.visibility ?? (teamId ? Visibility.TEAM : Visibility.PRIVATE);
+
     const task = await this.prisma.task.create({
       data: {
         title: dto.title.trim(),
         description: dto.description,
         ownerId: userId,
         assigneeId,
-        teamId: dto.teamId,
+        teamId,
         date: this.parseDate(dto.date),
         startAt: interval.startAt,
         endAt: interval.endAt,
         category: dto.category,
         priority: dto.priority,
         status: dto.status,
-        visibility: dto.visibility,
+        visibility,
         notes: dto.notes,
         forceOverlap: dto.force ?? false,
         overlapReason: dto.force ? dto.overlapReason?.trim() : undefined,
@@ -135,6 +143,9 @@ export class TasksService {
     );
     if (!statusOnly) {
       await this.assertAssigneeExists(assigneeId);
+      if (dto.teamId) {
+        await this.assertTeamMember(userId, dto.teamId);
+      }
       const schedulingChanged =
         dto.assigneeId !== undefined ||
         dto.startAt !== undefined ||
@@ -245,6 +256,15 @@ export class TasksService {
     const exists = await this.prisma.user.count({ where: { id: userId } });
     if (!exists) {
       throw new NotFoundException("Responsável não encontrado");
+    }
+  }
+
+  private async assertTeamMember(userId: string, teamId: string) {
+    const membership = await this.prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId } },
+    });
+    if (!membership) {
+      throw new ForbiddenException("Você não pertence a esta equipe");
     }
   }
 

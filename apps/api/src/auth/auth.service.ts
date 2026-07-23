@@ -6,9 +6,9 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
-import { SystemRole } from "@prisma/client";
+import { SystemRole, TeamInviteStatus } from "@prisma/client";
 import * as bcrypt from "bcrypt";
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { UsersService } from "../users/users.service";
 import { LoginDto } from "./dto/login.dto";
@@ -45,6 +45,7 @@ export class AuthService {
       },
     });
     const authorizedUser = await this.ensureBootstrapAdmin(user);
+    await this.attachPendingTeamInvites(authorizedUser.id, authorizedUser.email);
     return this.issueTokens(
       authorizedUser.id,
       authorizedUser.email,
@@ -62,6 +63,7 @@ export class AuthService {
       throw new UnauthorizedException("Credenciais inválidas");
     }
     const authorizedUser = await this.ensureBootstrapAdmin(user);
+    await this.attachPendingTeamInvites(authorizedUser.id, authorizedUser.email);
     return this.issueTokens(
       authorizedUser.id,
       authorizedUser.email,
@@ -97,6 +99,57 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
     return { ok: true };
+  }
+
+  private async attachPendingTeamInvites(userId: string, email: string) {
+    const pending = await this.prisma.teamInvite.findMany({
+      where: {
+        status: TeamInviteStatus.PENDING,
+        email: email.toLowerCase(),
+      },
+      include: {
+        team: { select: { id: true, name: true } },
+        invitedBy: { select: { fullName: true } },
+      },
+    });
+
+    if (pending.length === 0) return;
+
+    const existingNotes = await this.prisma.notification.findMany({
+      where: { userId, type: "TEAM_INVITE" },
+      select: { payload: true },
+    });
+    const knownInviteIds = new Set(
+      existingNotes
+        .map((item) => (item.payload as { inviteId?: string } | null)?.inviteId)
+        .filter((id): id is string => Boolean(id)),
+    );
+
+    for (const invite of pending) {
+      if (invite.invitedUserId !== userId) {
+        await this.prisma.teamInvite.update({
+          where: { id: invite.id },
+          data: { invitedUserId: userId },
+        });
+      }
+      if (knownInviteIds.has(invite.id)) continue;
+
+      await this.prisma.notification.create({
+        data: {
+          id: randomUUID(),
+          userId,
+          type: "TEAM_INVITE",
+          title: `Convite para ${invite.team.name}`,
+          body: `${invite.invitedBy.fullName} convidou você para entrar na equipe "${invite.team.name}". Aceite ou recuse o convite.`,
+          payload: {
+            inviteId: invite.id,
+            teamId: invite.team.id,
+            teamName: invite.team.name,
+            invitedByName: invite.invitedBy.fullName,
+          },
+        },
+      });
+    }
   }
 
   private async issueTokens(

@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { CurrentUser, JwtAuthGuard } from "../auth/jwt-auth.guard";
-import { AddMemberDto, CreateTeamDto } from "./dto/team.dto";
+import { InviteMemberDto, CreateTeamDto } from "./dto/team.dto";
 import { TeamsService } from "./teams.service";
 
 type AuthenticatedUser = {
@@ -33,6 +33,27 @@ export class TeamsController {
     return this.teams.findMine(user.userId);
   }
 
+  @Get("invites/pending")
+  listPendingInvites(@CurrentUser() user: AuthenticatedUser) {
+    return this.teams.listMyPendingInvites(user.userId);
+  }
+
+  @Post("invites/:inviteId/accept")
+  acceptInvite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("inviteId", ParseUUIDPipe) inviteId: string,
+  ) {
+    return this.teams.acceptInvite(user.userId, inviteId);
+  }
+
+  @Post("invites/:inviteId/decline")
+  declineInvite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("inviteId", ParseUUIDPipe) inviteId: string,
+  ) {
+    return this.teams.declineInvite(user.userId, inviteId);
+  }
+
   @Get(":id")
   findOne(
     @CurrentUser() user: AuthenticatedUser,
@@ -41,13 +62,31 @@ export class TeamsController {
     return this.teams.findOne(user.userId, id);
   }
 
+  @Post(":id/invites")
+  inviteMember(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: InviteMemberDto,
+  ) {
+    return this.teams.inviteMember(user.userId, id, dto);
+  }
+
   @Post(":id/members")
   addMember(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id", ParseUUIDPipe) id: string,
-    @Body() dto: AddMemberDto,
+    @Body() dto: InviteMemberDto,
   ) {
-    return this.teams.addMember(user.userId, id, dto);
+    return this.teams.inviteMember(user.userId, id, dto);
+  }
+
+  @Delete(":id/invites/:inviteId")
+  cancelInvite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("inviteId", ParseUUIDPipe) inviteId: string,
+  ) {
+    return this.teams.cancelInvite(user.userId, id, inviteId);
   }
 
   @Delete(":id/members/:memberUserId")

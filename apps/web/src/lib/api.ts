@@ -106,6 +106,16 @@ export type TaskItem = {
   team: { id: string; name: string } | null;
 };
 
+export type TeamInviteItem = {
+  id: string;
+  teamId: string;
+  email: string;
+  status: "PENDING" | "ACCEPTED" | "DECLINED" | "CANCELLED";
+  createdAt: string;
+  team: { id: string; name: string; description?: string | null };
+  invitedBy: { id: string; fullName: string; email: string };
+};
+
 export type TeamItem = {
   id: string;
   name: string;
@@ -116,7 +126,29 @@ export type TeamItem = {
     role: "OWNER" | "MEMBER";
     user: { id: string; fullName: string; email: string };
   }>;
+  invites?: Array<{
+    id: string;
+    email: string;
+    status: string;
+    createdAt: string;
+    invitedBy: { id: string; fullName: string; email: string };
+  }>;
   _count?: { tasks: number };
+};
+
+export type AppNotification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  payload?: {
+    inviteId?: string;
+    teamId?: string;
+    teamName?: string;
+    invitedByName?: string;
+  } | null;
+  readAt?: string | null;
+  createdAt: string;
 };
 
 export type ChecklistItem = {
